@@ -62,21 +62,24 @@ This is not a toy project. It exercises every skill a full-stack engineer needs:
 
 | Phase | Challenge(s) | Hours | Key Topics |
 |---|---|---|---|
-| 0–1 | Warm up && Word Frequency Counter | 10–15h | syntax, slices, structs, maps, error handling, file I/O |
-| 2 | Multi-Format Logger + Shape Calculator Fix | 5–9h | interfaces, io.Writer, json, type switch |
-| 3 | Log Generator + Log Scanner + Worker Pool | 15–24h | goroutines, channels, WaitGroup, Mutex, context, net/http client |
-| 4 | Benchmark Battle | 4–8h | benchmarks, sync.Pool, escape analysis, pprof |
+| 1 | Word Frequency Counter | 6–8h | syntax, slices, structs, maps, error handling, file I/O |
+| 2 | Multi-Format Logger + Shape Calculator Fix | 11–14h | interfaces, io.Writer, json, type switch |
+| 3 | Log Generator + Log Scanner + Worker Pool | 25–35h | goroutines, channels, WaitGroup, Mutex, context, net/http client |
+| 4 | Benchmark Battle | 15–20h | benchmarks, sync.Pool, escape analysis, pprof |
 | 5 | Handoff Incident API | 25–30h | net/http, middleware, slog, config, graceful shutdown, structured errors |
+| 5.Test | Test the Handoff API | 8–10h | Go testing, table-driven tests, httptest, race detection |
 | 6 | PostgreSQL Integration | 15–20h | pgx, migrations, pooling, transactions, interface swap |
-| 7 | WebSocket & Real-Time | 12–15h | gorilla/websocket, hub pattern, broadcast, readPump/writePump |
-| 8 | Observability + Feature Flags | 18–22h | Prometheus, healthz/readyz, counters/histograms, A/B testing |
+| 7 | WebSocket & Real-Time | 12–15h | hub pattern, broadcast, per-client goroutines |
+| 8 | Observability + Feature Flags | 18–22h | Prometheus, healthz/readyz, A/B testing, deterministic hashing |
 | 9 | Authentication | 12–15h | JWT, bcrypt, auth middleware, RBAC, context propagation |
 | 10 | Code Review + Pressure | 14–18h | bug spotting, goroutine leaks, race conditions, timed implementation |
 | 11 | TypeScript + Vue Components | 25–30h | Vue reactivity, Composition API, defineProps/Emits, CSS, components |
 | 12 | Full Handoff Frontend | 25–30h | Pinia, API client, Vue Router, WebSocket client, forms, auth UI |
-| 13 | Testing | 20–25h | Go table tests, httptest, race detection, Vitest, Vue Test Utils |
+| 12.Test | Test the Handoff Frontend | 8–10h | Vitest, Vue Test Utils, mocking fetch, store testing |
+| 13 | Complete Test Coverage | 13–17h | coverage gaps, auth tests, concurrency tests, edge cases |
 | 14 | Ship It | 18–22h | Docker multi-stage, Compose, GitHub Actions, K8s manifests, deploy |
-| | **Total (Phases 5–14)** | **185–227h** | |
-| | **Total (Phases 1–14)** | **~250–300h** | |
+| | **Total (Phases 5–14)** | **195–240h** | |
+| | **Total (Phases 1–14)** | **~260–310h** | |
+
 
 *Complete phases in order. Don't skip. Each phase builds on the previous one.*

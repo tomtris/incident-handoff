@@ -79,7 +79,7 @@ This is the core product logic. The frontend will render this directly.
 **Middleware chain:**
 
 Build 3 middleware functions that wrap your handlers:
-- `LoggingMiddleware` — logs every request: method, path, status code, duration. Use `log/slog`.
+- `LoggingMiddleware` — logs every request: method, path, duration, request_id. Use `log/slog`.
 - `CORSMiddleware` — sets `Access-Control-Allow-Origin`, `Allow-Methods`, `Allow-Headers`. Required for Phase 11 when the Vue frontend connects.
 - `RequestIDMiddleware` — generates a UUID for each request, adds it to the response header `X-Request-ID`, and includes it in all log lines for that request.
 
@@ -207,9 +207,9 @@ $ curl -s http://localhost:8080/incidents/inc-999 | jq .
 }
 
 # Server log output (structured):
-2026-05-10T08:01:00Z INF request completed method=POST path=/incidents status=201 duration=1.2ms request_id=a3f9c012
-2026-05-10T08:02:00Z INF request completed method=POST path=/incidents/inc-001/entries status=201 duration=0.8ms request_id=b4e1d034
-2026-05-10T08:03:00Z WRN request completed method=GET path=/incidents/inc-999 status=404 duration=0.1ms request_id=c5f2e056
+2026-05-10T08:01:00Z request completed method=POST path=/incidents duration=1.2ms request_id=a3f9c012
+2026-05-10T08:02:00Z request completed method=POST path=/incidents/inc-001/entries duration=0.8ms request_id=b4e1d034
+2026-05-10T08:03:00Z request completed method=GET path=/incidents/inc-999 duration=0.1ms request_id=c5f2e056
 ```
 
 ### 5. Hints & Knowledge
@@ -257,7 +257,7 @@ $ curl -s http://localhost:8080/incidents/inc-999 | jq .
 [ ] GET /incidents/nonexistent — returns 404 with structured error JSON
 [ ] POST /incidents with missing title — returns 400 with MISSING_FIELD
 [ ] POST /incidents/:id/entries on resolved incident — returns 400
-[ ] All requests logged with method, path, status, duration, request_id
+[ ] All requests logged with method, path, duration, request_id
 [ ] CORS headers present on all responses
 [ ] Server shuts down gracefully on Ctrl+C (SIGINT)
 [ ] go vet ./... — zero warnings
@@ -278,6 +278,151 @@ $ curl -s http://localhost:8080/incidents/inc-999 | jq .
 ✅ sync.RWMutex — concurrent-safe reads and writes
 ✅ Project structure — separation of concerns in a Go service
 ```
+
+---
+
+# PHASE 5.Test — Go Testing Fundamentals
+
+> **Why this phase matters**
+> You've just built your first production Go service. It works — you tested it manually with `curl`. But manual testing doesn't scale. When you add PostgreSQL in Phase 6, WebSocket in Phase 7, and auth in Phase 9, how do you know Phase 5's handlers still work? You don't — unless you have automated tests. This phase introduces Go testing while Phase 5's code is fresh in your memory. From here forward, you're expected to write tests alongside your code in every phase.
+
+---
+
+## Challenge 5.Test — Test the Handoff API
+### `🟡 Beginner → Intermediate`
+**🕐 Expected duration: 8–10 hours**
+
+### 1. Context
+
+If you've never written a test before: a test is a function that calls your code with known inputs and checks whether the output matches what you expect. If it doesn't, the test fails and tells you exactly what went wrong. That's the entire concept. Everything below is technique for doing it well.
+
+### 2. Goal
+
+Write unit tests and HTTP handler tests for the Phase 5 API. Learn Go's testing tools: `testing.T`, table-driven tests, and `httptest`.
+
+### 3. Scope
+
+**Your first test:**
+
+Create `errors_test.go` next to `errors.go`. Write one test:
+
+```go
+func TestValidateSeverity(t *testing.T) {
+    err := validateSeverity("SEV1")
+    if err != nil {
+        t.Errorf("validateSeverity(SEV1) returned error: %v", err)
+    }
+}
+```
+
+Run it: `go test ./... -v`. Watch it pass. Now add a case that should fail: `validateSeverity("SEV4")`. Check that it returns an error. You now know the mechanic.
+
+**Table-driven tests:**
+
+One test function, many cases:
+
+```go
+func TestValidateSeverity(t *testing.T) {
+    tests := []struct {
+        name    string
+        input   string
+        wantErr bool
+    }{
+        {"valid SEV1", "SEV1", false},
+        {"valid SEV2", "SEV2", false},
+        {"valid SEV3", "SEV3", false},
+        {"invalid SEV4", "SEV4", true},
+        {"empty string", "", true},
+        {"lowercase", "sev1", true},
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := validateSeverity(tt.input)
+            if (err != nil) != tt.wantErr {
+                t.Errorf("validateSeverity(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+            }
+        })
+    }
+}
+```
+
+Each row is a case. `t.Run` creates a named subtest. If one fails, the name tells you which.
+
+**Tests to write:**
+
+Unit tests (table-driven):
+- `validateSeverity` — valid values, invalid values, empty
+- `validateStatus` — valid values, invalid values
+- `validateEntryType` — valid values, invalid values
+- Handoff brief generation — given known entries, assert correct action count, open question count
+
+HTTP handler tests using `httptest`:
+- `POST /incidents` with valid input → 201 + incident in response
+- `POST /incidents` with missing title → 400 + `MISSING_FIELD` error code
+- `GET /incidents/:id` with valid ID → 200 + incident
+- `GET /incidents/:id` with nonexistent ID → 404 + `INCIDENT_NOT_FOUND`
+- `POST /incidents/:id/entries` on a resolved incident → 400
+
+`httptest` lets you test handlers without starting a real server:
+```go
+req := httptest.NewRequest("POST", "/incidents", strings.NewReader(body))
+req.Header.Set("Content-Type", "application/json")
+rec := httptest.NewRecorder()
+handler.ServeHTTP(rec, req)
+// rec.Code has the status, rec.Body has the response
+```
+
+**Run:**
+```bash
+go test ./... -v          # all tests, verbose
+go test ./... -race       # with race detector
+go test ./... -cover      # with coverage percentage
+```
+
+### 4. Hints & Knowledge
+
+- Test files live next to the code: `errors.go` → `errors_test.go`, `handler_incidents.go` → `handler_incidents_test.go`.
+- `t.Errorf` reports failure but continues running. `t.Fatalf` reports and stops. Use `Fatalf` for setup failures (can't create test data). Use `Errorf` for assertions (check all of them).
+- `httptest.NewRecorder()` captures the HTTP response: `rec.Code` for status, `rec.Body.Bytes()` for the body.
+- `httptest.NewRequest("GET", "/path", nil)` creates a fake request. No server needed.
+- `json.Unmarshal(rec.Body.Bytes(), &result)` — decode the response to check fields.
+- `go test -cover` shows coverage percentage. `go test -coverprofile=cover.out && go tool cover -html=cover.out` generates an HTML report showing which lines are tested.
+
+### 5. Sources
+
+- Go testing: https://pkg.go.dev/testing
+- Table-driven tests: https://go.dev/wiki/TableDrivenTests
+- `httptest`: https://pkg.go.dev/net/http/httptest
+- Coverage: https://go.dev/blog/cover
+
+### 6. Common Mistakes to Avoid
+
+- Testing implementation details instead of behavior — test what the function returns, not how it computes it.
+- Writing one assertion per test function — use table-driven tests for multiple cases.
+- Not testing error paths — the "missing title returns 400" test is as important as "valid input returns 201."
+- Forgetting `-race` — concurrent bugs in the store only surface under the race detector.
+
+### 7. Checklist
+
+```
+[ ] go test ./... — all tests pass
+[ ] go test -race ./... — zero race conditions
+[ ] go test -cover ./... — >60% coverage on handler and validation code
+[ ] Table-driven tests for all validation functions
+[ ] httptest tests for at least 5 handler cases (mix of success and error)
+```
+
+### 8. Knowledge Gained
+
+```
+✅ Go testing fundamentals — testing.T, test files, go test
+✅ Table-driven tests — the idiomatic Go test pattern
+✅ httptest — testing HTTP handlers without a real server
+✅ Race detection — go test -race
+✅ Coverage measurement — go test -cover
+```
+
+**From this point forward:** when you build Phases 6–9, write tests alongside your code. You now have the tools. Don't wait — test each new handler and function as you write it. Phase 13 will verify your cumulative coverage.
 
 ---
 
@@ -529,6 +674,7 @@ State change:
     "new_value": "SEV2"
 }
 ```
+
 ### 4. Expected Output
 
 ```bash
@@ -646,6 +792,12 @@ Build a new middleware that wraps every HTTP handler. On each request it:
 3. Records the request count (counter) and duration (histogram), labeled by method, path, and status code.
 
 There's a problem: Go's `http.ResponseWriter` doesn't let you read the status code after `WriteHeader` is called. You need to solve this — figure out how to capture the status code that the inner handler writes. This is a common Go middleware puzzle.
+
+Once you solve it for the metrics middleware, go back and upgrade your Phase 5 `LoggingMiddleware` to use the same wrapper. Your log lines should now include the status code:
+```
+2026-05-10T08:01:00Z INF request completed method=POST path=/incidents status=201 duration=1.2ms request_id=a3f9c012
+```
+This is the natural progression: Phase 5 logged what was available. Now you have the tool to capture what wasn't.
 
 **Readiness probe (`GET /readyz`):**
 
@@ -1017,6 +1169,10 @@ $ curl -s http://localhost:8080/incidents | jq .
 
 After auth is added, the `author` field in `POST /incidents/:id/entries` is no longer provided by the client. The server sets it from the JWT — `user.Username`. A client cannot impersonate another engineer. Remove `author` from the request body validation; populate it from context.
 
+**Reconnect feature flags to auth:**
+
+Phase 8.2's `GET /flags/:name/evaluate?user_id=tom` takes user_id as a query parameter because auth didn't exist yet. Now it does. Update the endpoint: for authenticated requests, read the user_id from the JWT context. The `?user_id=` query parameter should still work as a fallback for admin testing, but normal evaluation uses the token identity. This means any authenticated endpoint can now call the flag system internally to branch behavior based on the current user — no query parameter needed.
+
 ### 4. Expected Output
 
 ```bash
@@ -1096,6 +1252,7 @@ $ curl -s -X POST http://localhost:8080/auth/login \
 [ ] POST /incidents/:id/entries — author auto-set from token, not request body
 [ ] PATCH /incidents/:id — only on-call engineer or admin can modify
 [ ] POST /flags — admin only, engineer gets 403
+[ ] GET /flags/:name/evaluate — reads user_id from JWT when authenticated, falls back to query param
 [ ] /healthz, /readyz, /metrics — work without token
 [ ] Passwords stored as bcrypt hashes
 [ ] JWT_SECRET read from environment
@@ -2021,201 +2178,24 @@ http://localhost:5173/anything-else    → 404 page
 
 ---
 
-# PART 4 — Testing & Delivery (Phases 13–14)
-
-This track tests both layers of Handoff, containerizes the stack, automates the pipeline, and deploys. After this, anyone can click a link and use Handoff.
-
----
-
-# PHASE 13 — Testing Across the Stack
+# PHASE 12.Test — Vue Testing Fundamentals
 
 > **Why this phase matters**
-> In a YBIYRI team, untested code means 3am incidents. Tests are the safety net that makes fast delivery safe. When you push code and CI runs tests automatically, you know within minutes whether your change broke something. Without tests, every change is a manual gamble.
->
-> If you've never written a test before, here's the concept: a test is a function that calls your code with known inputs and checks whether the output matches what you expect. If it doesn't, the test fails and tells you exactly what went wrong. That's it. Everything else — table-driven tests, mocking, coverage — is just technique for doing this well.
+> Same principle as Phase 5.Test. You've just built 8 components, a Pinia store, an API client, and a WebSocket composable. Test them now while the code is fresh. A button that doesn't emit, a store that doesn't set loading state, a component that renders the wrong severity color — these are caught by component tests. Vitest + Vue Test Utils is the standard Vue testing stack.
 
 ---
 
-## Challenge 13.1 — Test the Handoff Backend
-### `🟠 Intermediate`
-**🕐 Expected duration: 12–15 hours**
-
-### 1. Context
-
-Your Go API has handlers, middleware, store logic, validation, auth, WebSocket, and feature flags. All untested. This challenge adds a comprehensive test suite that catches regressions before they reach production.
-
-### 2. Goal
-
-Write unit tests, HTTP handler tests, and table-driven tests for the Handoff Go backend. Achieve >80% test coverage with zero race conditions.
-
-### 3. Scope
-
-**Testing fundamentals (if this is your first time):**
-
-A Go test file lives next to the code it tests: `handler_incidents_test.go` tests `handler_incidents.go`. Every test function starts with `Test` and takes `*testing.T`:
-
-```go
-func TestSomething(t *testing.T) {
-    result := Add(2, 3)
-    if result != 5 {
-        t.Errorf("Add(2, 3) = %d, want 5", result)
-    }
-}
-```
-
-Run it: `go test ./...`. That's the entire mechanic. Everything below builds on this.
-
-**Table-driven tests:**
-
-The idiomatic Go pattern for testing multiple cases:
-```go
-func TestValidateSeverity(t *testing.T) {
-    tests := []struct {
-        name    string
-        input   string
-        wantErr bool
-    }{
-        {"valid SEV1", "SEV1", false},
-        {"valid SEV2", "SEV2", false},
-        {"valid SEV3", "SEV3", false},
-        {"invalid SEV4", "SEV4", true},
-        {"empty string", "", true},
-        {"lowercase sev1", "sev1", true},
-    }
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            err := validateSeverity(tt.input)
-            if (err != nil) != tt.wantErr {
-                t.Errorf("validateSeverity(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
-            }
-        })
-    }
-}
-```
-
-Each row is a test case. `t.Run` creates a named subtest. If one fails, the name tells you which.
-
-**Unit tests to write:**
-- Handoff brief generation — given a set of entries, assert correct counts (actions, open questions, handoff count)
-- Input validation — test every rejection: missing title, invalid severity, invalid status, invalid entry type, invalid status transition (entry on resolved incident)
-- Feature flag evaluation — test deterministic hashing, boundaries (rollout 0%, 50%, 100%), disabled flag
-- Config loading — defaults when env vars are unset, overrides when set
-- Auth — bcrypt password verification, JWT token creation and parsing, expired token rejection
-
-**HTTP handler tests (using `httptest`):**
-
-`httptest` lets you test HTTP handlers without starting a real server:
-```go
-func TestCreateIncident(t *testing.T) {
-    store := NewMemoryStore()
-    handler := NewIncidentHandler(store)
-
-    body := `{"title":"test","service":"api","severity":"SEV1","opened_by":"tom"}`
-    req := httptest.NewRequest("POST", "/incidents", strings.NewReader(body))
-    req.Header.Set("Content-Type", "application/json")
-    // Add auth context if needed:
-    req = req.WithContext(ContextWithUser(req.Context(), testUser))
-
-    rec := httptest.NewRecorder()
-    handler.Create(rec, req)
-
-    if rec.Code != http.StatusCreated {
-        t.Errorf("status = %d, want %d", rec.Code, http.StatusCreated)
-    }
-
-    var inc Incident
-    json.Unmarshal(rec.Body.Bytes(), &inc)
-    if inc.Title != "test" {
-        t.Errorf("title = %q, want %q", inc.Title, "test")
-    }
-}
-```
-
-**Handler tests to write:**
-- `POST /incidents` → 201 with correct response body
-- `POST /incidents` with missing title → 400 + `MISSING_FIELD`
-- `GET /incidents/nonexistent` → 404 + `INCIDENT_NOT_FOUND`
-- `POST /incidents/:id/entries` → 201 + entry in response
-- `POST /incidents/:id/entries` on resolved incident → 400
-- `PATCH /incidents/:id` → severity/status change persists
-- `GET /incidents/:id/handoff` → correct brief structure
-- `GET /healthz` → 200
-- All endpoints without auth token → 401
-- `PATCH` by non-on-call engineer → 403
-
-**Store tests:**
-- Test `MemoryStore` with concurrent goroutines reading and writing — pass `go test -race`
-- If PostgreSQL is available: test `PostgresStore` against a real database using Docker Compose
-
-**Run:**
-```bash
-go test ./... -race -cover -v
-# Target: >80% coverage, 0 race conditions, all tests pass
-```
-
-### 4. Hints & Knowledge
-
-- `testing.T` — `t.Errorf` reports failure but continues. `t.Fatalf` reports and stops. Use `Fatalf` when continuing makes no sense (e.g., failed to create test data).
-- `t.Run("name", func(t *testing.T) { ... })` — subtests. Each subtest runs independently and reports individually.
-- `httptest.NewRecorder()` captures HTTP responses without a real server.
-- `httptest.NewRequest("GET", "/path", nil)` creates a fake HTTP request.
-- `go test -cover ./...` shows coverage percentage per package.
-- `go test -coverprofile=cover.out && go tool cover -html=cover.out` generates an HTML coverage report showing which lines are tested.
-- `go test -race ./...` runs the race detector — finds concurrent access bugs.
-
-### 5. Sources
-
-- Go testing: https://pkg.go.dev/testing
-- `httptest`: https://pkg.go.dev/net/http/httptest
-- Table-driven tests: https://go.dev/wiki/TableDrivenTests
-- Race detector: https://go.dev/doc/articles/race_detector
-- Coverage: https://go.dev/blog/cover
-
-### 6. Common Mistakes to Avoid
-
-- Testing implementation details instead of behavior — test what the function returns, not how it computes it.
-- Writing one assertion per test function — use table-driven tests for multiple cases.
-- Not testing error paths — the test for "missing title returns 400" is as important as "valid input returns 201."
-- Using `t.Fatal` vs `t.Error` wrong — `Fatal` stops the test immediately. Use it for setup failures. Use `Error` for assertion failures so all assertions run.
-- Not running `-race` — concurrent bugs only surface under the race detector.
-
-### 7. Checklist
-
-```
-[ ] go test ./... — all tests pass
-[ ] go test -race ./... — zero race conditions
-[ ] go test -cover ./... — >80% coverage
-[ ] Table-driven tests for all validation logic
-[ ] httptest tests for every endpoint + error case
-[ ] Auth tested: valid token, invalid token, expired token, missing token
-[ ] Feature flag evaluation tested: boundaries, disabled, deterministic
-[ ] Store tested with concurrent access
-```
-
-### 8. Knowledge Gained
-
-```
-✅ Go testing fundamentals — testing.T, test files, running tests
-✅ Table-driven tests — the idiomatic Go test pattern
-✅ httptest — testing HTTP handlers without a real server
-✅ Test coverage — measurement and HTML report
-✅ Race detection — finding concurrent access bugs
-✅ Testing error paths — not just the happy path
-```
-
----
-
-## Challenge 13.2 — Test the Handoff Frontend
+## Challenge 12.Test — Test the Handoff Frontend
 ### `🟡 Beginner → Intermediate`
 **🕐 Expected duration: 8–10 hours**
 
 ### 1. Context
 
-A button that doesn't work, a number showing `NaN`, a loading spinner that never stops, a login form that silently fails — these are frontend bugs caught by component tests. Vitest + Vue Test Utils is the standard testing stack for Vue.
+If you've written Go tests in Phase 5.Test, the concept is identical. A test mounts a component with known props and checks whether the rendered output matches expectations. Instead of `testing.T`, you use `describe` / `it` / `expect`. Instead of `httptest`, you mock `fetch`.
 
 ### 2. Goal
 
-Add a test suite to the Handoff Vue frontend covering component rendering, store logic, and API mocking.
+Add a Vitest + Vue Test Utils test suite covering component rendering and store logic.
 
 ### 3. Scope
 
@@ -2231,21 +2211,10 @@ test: {
 }
 ```
 
-**Testing fundamentals (Vitest):**
+**Your first test:**
+
 ```typescript
 import { describe, it, expect } from 'vitest'
-
-describe('add', () => {
-  it('adds two numbers', () => {
-    expect(1 + 2).toBe(3)
-  })
-})
-```
-
-Same concept as Go tests. `describe` groups related tests. `it` defines one test case. `expect(...).toBe(...)` is the assertion.
-
-**Component tests:**
-```typescript
 import { mount } from '@vue/test-utils'
 import SeverityBadge from '@/components/SeverityBadge.vue'
 
@@ -2257,7 +2226,9 @@ describe('SeverityBadge', () => {
 })
 ```
 
-**Tests to write:**
+Run it: `npx vitest run`. Same mechanic as Go tests — known input, expected output.
+
+**Component tests to write:**
 - `SeverityBadge` — renders correct text for each severity level
 - `StatusIndicator` — renders correct text for each status
 - `IncidentCard` — renders title, severity badge, status, service name
@@ -2268,51 +2239,21 @@ describe('SeverityBadge', () => {
 - `HandoffBrief` — hides open questions section when there are none
 
 **Store tests (mock `fetch`):**
+
 ```typescript
 import { vi } from 'vitest'
-import { setActivePinia, createPinia } from 'pinia'
-import { useIncidentStore } from '@/stores/incidents'
 
-// Mock fetch globally
 vi.stubGlobal('fetch', vi.fn())
-
-describe('useIncidentStore', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    vi.mocked(fetch).mockReset()
-  })
-
-  it('sets loading during fetch', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ([{ id: 'inc-001', title: 'test' }]),
-    } as Response)
-
-    const store = useIncidentStore()
-    const promise = store.fetchIncidents()
-    expect(store.loading).toBe(true)
-    await promise
-    expect(store.loading).toBe(false)
-    expect(store.incidents).toHaveLength(1)
-  })
-
-  it('sets error on failure', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      json: async () => ({ error: { code: 'INTERNAL', message: 'fail' } }),
-    } as Response)
-
-    const store = useIncidentStore()
-    await store.fetchIncidents()
-    expect(store.error).toBe('fail')
-  })
-})
 ```
+
+- Test `fetchIncidents` — sets `loading=true` during fetch, populates `incidents` on success
+- Test `fetchIncidents` — sets `error` on failure
+- Test `createIncident` — calls POST with correct body
 
 **Run:**
 ```bash
 npx vitest run --coverage
-# Target: >75% component coverage
+# Target: >60% component coverage
 ```
 
 ### 4. Hints & Knowledge
@@ -2320,11 +2261,12 @@ npx vitest run --coverage
 - `mount(Component, { props: {...} })` — mount a component with props.
 - `wrapper.text()` — all rendered text content.
 - `wrapper.find('.class')` — find a DOM element by CSS selector.
-- `wrapper.findComponent(ChildComponent)` — find a child Vue component.
 - `await wrapper.find('input').setValue('hello')` — simulate typing.
 - `await wrapper.find('button').trigger('click')` — simulate click.
 - `wrapper.emitted('submit')` — returns array of emitted events with payloads.
 - `vi.fn()` — create a mock function. `vi.stubGlobal('fetch', vi.fn())` — mock `fetch` globally.
+- `vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => data } as Response)` — make mock return data.
+- `beforeEach(() => vi.mocked(fetch).mockReset())` — reset mocks between tests.
 
 ### 5. Sources
 
@@ -2335,15 +2277,15 @@ npx vitest run --coverage
 ### 6. Common Mistakes to Avoid
 
 - Testing Vue internals (raw ref values) instead of rendered output — test what the user sees.
-- Not mocking `fetch` — tests should never make real HTTP calls. They must work offline.
-- Snapshot testing everything — snapshots break on any UI change. Test specific behaviors instead.
-- Not resetting mocks between tests — use `beforeEach(() => vi.mocked(fetch).mockReset())`.
+- Not mocking `fetch` — tests should never make real HTTP calls.
+- Snapshot testing everything — snapshots break on any UI change. Test specific behaviors.
+- Not resetting mocks between tests — `beforeEach(() => vi.mocked(fetch).mockReset())`.
 
 ### 7. Checklist
 
 ```
 [ ] npx vitest run — all tests pass
-[ ] npx vitest run --coverage — >75% coverage
+[ ] npx vitest run --coverage — >60% coverage
 [ ] Component tests cover: props rendering, event emission, conditional rendering
 [ ] Store tests cover: loading state, success state, error state
 [ ] All tests run without network access (fetch is mocked)
@@ -2352,11 +2294,137 @@ npx vitest run --coverage
 ### 8. Knowledge Gained
 
 ```
-✅ Vitest — setup, describe, it, expect
+✅ Vitest — describe, it, expect
 ✅ Vue Test Utils — mount, props, find, trigger, emitted
 ✅ Mocking fetch — vi.stubGlobal, vi.fn, mockResolvedValue
-✅ Store testing — Pinia with createTestingPinia
-✅ Frontend test coverage measurement
+✅ Store testing — Pinia with mock fetch
+✅ Frontend coverage measurement
+```
+
+**From this point forward:** as with Go, write Vue tests alongside new code.
+
+---
+
+# PART 4 — Test Completion & Delivery (Phases 13–14)
+
+This track completes test coverage, containerizes the stack, automates the pipeline, and deploys.
+
+---
+
+# PHASE 13 — Complete Test Coverage
+
+> **Why this phase matters**
+> You've been writing tests since Phase 5.Test (Go) and Phase 12.Test (Vue). Some code is well-tested; some has gaps — especially code from Phases 6–9 if you didn't write tests as you went. This phase is the systematic sweep: identify what's untested, fill the gaps, and hit the coverage targets that make CI meaningful. After this, every push to `main` is verified by automated tests.
+
+---
+
+## Challenge 13.1 — Complete the Go Test Suite
+### `🟠 Intermediate`
+**🕐 Expected duration: 8–10 hours**
+
+### 1. Context
+
+Phase 5.Test covered validation and basic handler tests. Since then you've added PostgreSQL, WebSocket, metrics, feature flags, and auth. If you wrote tests as you built (as instructed), some of this is covered. If you didn't, this is where you catch up.
+
+### 2. Goal
+
+Achieve >80% test coverage across the Go backend with zero race conditions.
+
+### 3. Scope
+
+Run coverage and identify gaps:
+```bash
+go test -coverprofile=cover.out ./... && go tool cover -html=cover.out
+```
+
+Open the HTML report. Red lines are untested. Prioritize:
+
+**Auth tests:**
+- Login with valid credentials → token
+- Login with invalid credentials → 401
+- Protected endpoint without token → 401
+- Expired token → 401
+- RBAC: non-on-call engineer tries to resolve → 403
+- RBAC: admin overrides → 200
+
+**Feature flag tests:**
+- Deterministic: same user + flag → same result across 10 calls
+- Rollout 0% → nobody in
+- Rollout 100% → everybody in
+- Disabled flag → nobody in regardless of rollout
+- Multiple variants assigned consistently
+
+**Store concurrency:**
+- 10 goroutines: 5 writing, 5 reading simultaneously. Pass `go test -race`.
+
+**Handoff brief:**
+- Known entries → correct action count, open question count, handoff count, elapsed time
+
+**Config:**
+- Defaults when env vars unset
+- Overrides when set
+
+**Run:**
+```bash
+go test ./... -race -cover -v
+# Target: >80% coverage, 0 race conditions
+```
+
+---
+
+## Challenge 13.2 — Complete the Vue Test Suite
+### `🟡 Beginner → Intermediate`
+**🕐 Expected duration: 5–7 hours**
+
+### 1. Context
+
+Phase 12.Test covered component rendering and store basics. This challenge fills the remaining gaps.
+
+### 2. Goal
+
+Achieve >75% component coverage across the Vue frontend.
+
+### 3. Scope
+
+Run coverage and identify gaps:
+```bash
+npx vitest run --coverage
+```
+
+Prioritize:
+- Login form: submits credentials, stores token on success, shows error on failure
+- Route guard: unauthenticated navigation to `/` redirects to `/login`
+- New incident form: validates required fields, shows inline errors, disables button during submission
+- WebSocket composable: reconnects after disconnect (mock WebSocket)
+- Empty states: dashboard with no incidents renders "No incidents yet"
+- Error states: API unreachable renders error message with retry button
+
+**Run:**
+```bash
+npx vitest run --coverage
+# Target: >75% coverage
+```
+
+### 4. Checklist (both challenges)
+
+```
+[ ] go test ./... -race -cover — >80% Go coverage, 0 race conditions
+[ ] npx vitest run --coverage — >75% Vue coverage
+[ ] Auth flow tested: login, token, protected endpoints, RBAC
+[ ] Feature flag evaluation tested: deterministic, boundaries, disabled
+[ ] Store concurrency tested with -race
+[ ] Vue forms, route guards, and error states tested
+[ ] All tests pass without network access
+```
+
+### 5. Knowledge Gained
+
+```
+✅ Systematic coverage analysis — HTML reports, identifying gaps
+✅ Testing auth flows — tokens, expiry, RBAC
+✅ Testing concurrent code — race detection
+✅ Testing frontend edge cases — empty states, error states, form validation
+✅ Coverage as a CI gate
 ```
 
 ---
@@ -2532,3 +2600,6 @@ docker compose up --build
 ✅ Free-tier deployment — shipping to a live URL
 ✅ README as documentation — the first thing anyone reads
 ```
+---
+
+*Complete phases in order. Don't skip. Each phase builds on the previous one.*
