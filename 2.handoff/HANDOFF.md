@@ -139,7 +139,7 @@ This is required for Kubernetes — when a pod is terminated, it sends `SIGTERM`
 **Store layer:**
 ```go
 type Store interface {
-    CreateIncident(ctx context.Context, inc Incident) error
+    CreateIncident(ctx context.Context, inc Incident) (Incident, error)
     GetIncident(ctx context.Context, id string) (Incident, error)
     ListIncidents(ctx context.Context, filter IncidentFilter) ([]Incident, error)
     UpdateIncident(ctx context.Context, id string, update IncidentUpdate) error
@@ -164,6 +164,7 @@ handoff/
 └── go.mod
 ```
 
+You can add more files if needed.
 ### 4. Expected Output
 
 ```bash

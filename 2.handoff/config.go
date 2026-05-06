@@ -6,31 +6,43 @@ type Config struct {
 	Environment string // default "development", env: HANDOFF_ENV
 }
 
-type ConfigOption func(*Config)
+const (
+	TRIGGERED     = "triggered"
+	ACKNOWLEDGED  = "acknowledged"
+	INVESTIGATING = "investigating"
+	MITIGATED     = "mitigated"
+	RESOLVED      = "resolved"
+)
 
-func WithPort(p string) ConfigOption {
-	return func(c *Config) { c.Port = p }
-}
+const requestIDKey = "request_id"
+const incidentIDPrefix = "inc-"
+const entryIDPrefix = "ent-"
 
-func WithLogLevel(l string) ConfigOption {
-	return func(c *Config) { c.LogLevel = l }
-}
+// type ConfigOption func(*Config)
 
-func WithEnvironment(e string) ConfigOption {
-	return func(c *Config) { c.Environment = e }
-}
+// func WithPort(p string) ConfigOption {
+// 	return func(c *Config) { c.Port = p }
+// }
 
-func NewConfig(confOpts ...ConfigOption) Config {
-	newConfig := Config{
-		Port:        "8080",
-		LogLevel:    "info",
-		Environment: "development",
-	}
-	for _, configOpt := range confOpts {
-		configOpt(&newConfig)
-	}
-	return newConfig
-}
+// func WithLogLevel(l string) ConfigOption {
+// 	return func(c *Config) { c.LogLevel = l }
+// }
+
+// func WithEnvironment(e string) ConfigOption {
+// 	return func(c *Config) { c.Environment = e }
+// }
+
+// func NewConfig(confOpts ...ConfigOption) Config {
+// 	newConfig := Config{
+// 		Port:        "8080",
+// 		LogLevel:    "info",
+// 		Environment: "development",
+// 	}
+// 	for _, configOpt := range confOpts {
+// 		configOpt(&newConfig)
+// 	}
+// 	return newConfig
+// }
 
 // curl -s -X POST http://localhost:8080/incidents \
 //   -H "Content-Type: application/json" \
