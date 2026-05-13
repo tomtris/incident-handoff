@@ -33,6 +33,8 @@ func main() {
 		Handler: router,
 	}
 	go incHandler.Registry.run()
+	defer close(incHandler.Registry.done)
+
 	go func() {
 		slog.Info(fmt.Sprintf("server starting port=%s", srv.Addr))
 		err := srv.ListenAndServe()

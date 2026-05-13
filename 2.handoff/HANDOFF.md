@@ -426,7 +426,7 @@ go test ./... -cover      # with coverage percentage
 ✅ Coverage measurement — go test -cover
 ```
 
-**From this point forward:** when you build Phases 6–9, write tests alongside your code. You now have the tools. Don't wait — test each new handler and function as you write it. Phase 13 will verify your cumulative coverage.
+**From this point forward:** when you build Phases 6–9, write tests alongside your code. You now have the tools. Don't wait — test each new handler and function as you write it. `go test -cover ./...` >75%. Phase 13 will verify your cumulative coverage.
 
 ---
 

@@ -1,6 +1,8 @@
 package main
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type Registry struct {
 	hubs          map[string]*Hub
@@ -8,6 +10,7 @@ type Registry struct {
 	register      chan *Client
 	unregister    chan *Client
 	broadcast     chan BroadcastMessage
+	done          chan struct{}
 }
 
 type BroadcastMessage struct {
@@ -22,6 +25,7 @@ func NewRegistry() Registry {
 		register:      make(chan *Client), // no buffered on purpose
 		unregister:    make(chan *Client), // no buffered on purpose
 		broadcast:     make(chan BroadcastMessage),
+		done:          make(chan struct{}),
 	}
 }
 
@@ -34,6 +38,11 @@ func (r *Registry) run() {
 			r.leaveRegister(client)
 		case broadcast := <-r.broadcast:
 			r.broadcastMessage(broadcast)
+		case <-r.done:
+			for _, hub := range r.hubs {
+				close(hub.done)
+			}
+			return
 		}
 	}
 }
@@ -58,12 +67,15 @@ func (r *Registry) leaveRegister(client *Client) {
 	hub, _ := r.hubs[incID]
 	if r.clientCounter[incID] == 0 {
 		close(hub.done)
-		r.hubs[incID] = nil
+		delete(r.hubs, incID)
 		return
 	}
 	hub.unregister <- client
 }
 
 func (r *Registry) broadcastMessage(b BroadcastMessage) {
-	r.hubs[b.incidentID].broadcast <- b.msg
+	hub, ok := r.hubs[b.incidentID]
+	if ok {
+		hub.broadcast <- b.msg
+	}
 }

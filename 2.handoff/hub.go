@@ -8,7 +8,7 @@ type Hub struct {
 	broadcast  chan []byte
 	register   chan *Client
 	unregister chan *Client
-	done       chan byte
+	done       chan struct{}
 }
 
 func NewHub() *Hub {
@@ -18,7 +18,7 @@ func NewHub() *Hub {
 		register:   make(chan *Client, 8),
 		unregister: make(chan *Client, 8),
 		broadcast:  make(chan []byte, 256),
-		done:       make(chan byte),
+		done:       make(chan struct{}),
 	}
 }
 
@@ -47,9 +47,6 @@ func (h *Hub) run() {
 				close(client.send)
 				delete(h.clients, client)
 			}
-			close(h.register)
-			close(h.unregister)
-			close(h.broadcast)
 			return
 		}
 	}
