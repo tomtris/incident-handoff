@@ -95,7 +95,7 @@ type CreateIncidentRequest struct {
 	Service  string  `json:"service" bson:"service"`
 	Severity string  `json:"severity" bson:"severity"` // SEV1, SEV2, SEV3
 	OpenedBy string  `json:"opened_by" bson:"opened_by"`
-	OnCall   *string `json:"on_call" bson:"on_call"`
+	OnCall   *string `json:"on_call,omitempty" bson:"on_call"`
 }
 
 func (c *CreateIncidentRequest) Validate() error {

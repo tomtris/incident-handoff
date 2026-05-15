@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -70,13 +69,13 @@ func ObservabilityMiddleware(nextHandler http.Handler) http.Handler {
 			err := recover()
 
 			if err != nil {
-				slog.Error("request panicked",
-					"method", r.Method,
-					"path", r.URL.Path,
-					"err", err,
-					"duration", duration,
-					requestIDKey, requestID,
-				)
+				// slog.Error("request panicked",
+				// 	"method", r.Method,
+				// 	"path", r.URL.Path,
+				// 	"err", err,
+				// 	"duration", duration,
+				// 	requestIDKey, requestID,
+				// )
 				httpRequestsTotal.WithLabelValues(r.Method, r.URL.Path, "500").Inc()
 				httpDurationSeconds.WithLabelValues(r.Method, r.URL.Path).Observe(duration.Seconds())
 				writeError(w, 500, ErrorMessageJSON{
@@ -88,24 +87,24 @@ func ObservabilityMiddleware(nextHandler http.Handler) http.Handler {
 			}
 
 			if wrappedWriter.Hijacked {
-				slog.Info("websocket connection",
-					"method", r.Method,
-					"path", r.URL.Path,
-					"duration", duration,
-					requestIDKey, requestID,
-				)
+				// slog.Info("websocket connection",
+				// 	"method", r.Method,
+				// 	"path", r.URL.Path,
+				// 	"duration", duration,
+				// 	requestIDKey, requestID,
+				// )
 				return
 			}
 
 			httpRequestsTotal.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(wrappedWriter.StatusCode)).Inc()
 			httpDurationSeconds.WithLabelValues(r.Method, r.URL.Path).Observe(duration.Seconds())
-			slog.Info("request completed",
-				"method", r.Method,
-				"path", r.URL.Path,
-				"status", wrappedWriter.StatusCode,
-				"duration", duration,
-				requestIDKey, requestID,
-			)
+			// slog.Info("request completed",
+			// 	"method", r.Method,
+			// 	"path", r.URL.Path,
+			// 	"status", wrappedWriter.StatusCode,
+			// 	"duration", duration,
+			// 	requestIDKey, requestID,
+			// )
 		}()
 		nextHandler.ServeHTTP(wrappedWriter, r)
 	})

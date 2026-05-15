@@ -40,8 +40,9 @@ var (
 
 	dbQueryDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name: "handoff_db_query_duration_seconds",
-			Help: "Database query latency",
+			Name:    "handoff_db_query_duration_seconds",
+			Help:    "Database query latency",
+			Buckets: []float64{.03, .1},
 		},
 		[]string{"operation"},
 	)

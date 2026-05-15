@@ -19,10 +19,17 @@ func TestMongoCreateIncident(t *testing.T) {
 	router := getRouter(&incHandler, client, prometheus.NewRegistry())
 	go incHandler.Registry.run()
 	defer close(incHandler.Registry.done)
-	if instrumented, ok := mongoStore.(*InstrumentedStore); ok {
-		if ms, ok := instrumented.s.(*MongoStore); ok {
+	instrumented, ok := mongoStore.(*InstrumentedStore)
+
+	if ok {
+		ms, ok := instrumented.s.(*MongoStore)
+		if ok {
 			ms.DropAll(context.Background())
+		} else {
+			t.Fatal("MongoDB not ready")
 		}
+	} else {
+		t.Fatal("Something wrong with InstrumentedStore")
 	}
 
 	t.Run("Normal Request", func(t *testing.T) {
