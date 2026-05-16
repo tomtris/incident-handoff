@@ -7,8 +7,9 @@ import (
 )
 
 type IncidentHandler struct {
-	Store    Store
-	Registry Registry
+	Store     Store
+	Registry  Registry
+	FlagStore FlagStore
 }
 
 func marshalNewEntryEvent(incidentID string, entry TimelineEntry) json.RawMessage {
