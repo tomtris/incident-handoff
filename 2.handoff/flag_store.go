@@ -17,11 +17,15 @@ func CreateFlagStore() FlagStore {
 	}
 }
 
-func (flagStore *FlagStore) Create(f FeatureFlag) {
+func (flagStore *FlagStore) Create(f FeatureFlag) error {
 	flagStore.m.Lock()
 	defer flagStore.m.Unlock()
-
+	_, ok := flagStore.Flags[f.Name]
+	if ok == true {
+		return ErrFlagAlreadyExist
+	}
 	flagStore.Flags[f.Name] = f
+	return nil
 }
 
 func (flagStore *FlagStore) Update(u FeatureFlagUpdate) error {

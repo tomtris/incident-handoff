@@ -28,7 +28,14 @@ func (incHandler *IncidentHandler) CreateFlag(w http.ResponseWriter, r *http.Req
 		})
 		return
 	}
-	incHandler.FlagStore.Create(f)
+	err = incHandler.FlagStore.Create(f)
+	if errors.Is(err, ErrFlagAlreadyExist) {
+		writeError(w, http.StatusBadRequest, ErrorMessageJSON{
+			ErrorCode: BAD_REQUEST,
+			Message:   err.Error(),
+			RequestID: requestID,
+		})
+	}
 	writeJSON(w, http.StatusCreated, requestID, f)
 }
 

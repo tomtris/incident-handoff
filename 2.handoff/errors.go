@@ -32,6 +32,7 @@ var ErrOnCall = errors.New("Invalid on_call") //The variable on_call must be eit
 var ErrInternal = errors.New("Internal Error")
 
 var ErrFlagNotfound = errors.New("Flag Not Found")
+var ErrFlagAlreadyExist = errors.New("Flag is already in use")
 
 const (
 	INCIDENT_NOT_FOUND    = "INCIDENT_NOT_FOUND"
