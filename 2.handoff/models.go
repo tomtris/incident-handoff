@@ -154,7 +154,7 @@ func (f *FeatureFlag) Validate() error {
 	if strings.TrimSpace(f.Name) == "" {
 		return ErrBadRequest
 	}
-	if f.Rollout < 0 && 100 > f.Rollout {
+	if f.Rollout < 0 || f.Rollout > 100 {
 		return ErrBadRequest
 	}
 	if f.Variants == nil {
@@ -183,8 +183,16 @@ func (u *FeatureFlagUpdate) Validate() error {
 	if u.Enabled == nil && u.Rollout == nil {
 		return errors.New("both enabled and rollout are empty")
 	}
-	if u.Rollout != nil && *u.Rollout < 0 && 100 > *u.Rollout {
+	if u.Rollout != nil && (*u.Rollout < 0 || *u.Rollout > 100) {
 		return errors.New("invalid rollout")
 	}
 	return nil
+}
+
+type FlagEvaluateAnswer struct {
+	Name      string  `json:"name"`
+	UserID    string  `json:"user_id"`
+	Enabled   bool    `json:"enabled"`
+	InRollout bool    `json:"in_rollout"`
+	Variant   *string `json:"variants"`
 }

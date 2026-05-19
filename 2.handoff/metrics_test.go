@@ -1,19 +1,5 @@
 package main
 
-// import (
-// 	"bytes"
-// 	"context"
-// 	"encoding/json"
-// 	"io"
-// 	"net/http"
-// 	"net/http/httptest"
-// 	"strings"
-// 	"testing"
-
-// 	"github.com/gorilla/websocket"
-// 	"github.com/prometheus/client_golang/prometheus"
-// )
-
 // func createWsConns(srv *httptest.Server, cnt int) ([]*websocket.Conn, error) {
 // 	wsURLs := []string{}
 // 	conns := []*websocket.Conn{}
