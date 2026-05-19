@@ -79,28 +79,7 @@ func TestMongoStore_CreateIncident(t *testing.T) {
 		}
 	})
 
-	t.Run("sets correct properties", func(t *testing.T) {
-		inc, _ := m.CreateIncident(context.Background(), CreateIncidentRequest{
-			Title:    "outage4",
-			Service:  "api",
-			Severity: "SEV1",
-			OpenedBy: "anh",
-		})
-		if inc.Title != "outage4" {
-			t.Errorf("Title expected %s, got %s", "outage4", inc.Title)
-		}
-		if inc.Service != "api" {
-			t.Errorf("Service expected %s, got %s", "api", inc.Service)
-		}
-		if inc.Severity != "SEV1" {
-			t.Errorf("Severity expected %s, got %s", "SEV", inc.Severity)
-		}
-		if inc.OpenedBy != "anh" {
-			t.Errorf("OpenedBy expected 0, got %v", inc.OpenedBy)
-		}
-	})
-
-	t.Run("sets correct properties", func(t *testing.T) {
+	t.Run("maps incident fields correctly", func(t *testing.T) {
 		inc, _ := m.CreateIncident(context.Background(), CreateIncidentRequest{
 			Title:    "outage4",
 			Service:  "api",

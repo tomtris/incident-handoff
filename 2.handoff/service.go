@@ -38,10 +38,12 @@ func buildHandoffBrief(inc Incident, flagStore *FlagStore, userID string) Handof
 		CreatedAt:     inc.CreatedAt,
 	}
 
-	flagAnswer, err := flagStore.Evaluate("detailed_handoff_brief", userID)
-	if err == nil && flagAnswer.InRollout == true && *flagAnswer.Variant == "detailed" {
-		brief.OpenQuestionList = &openQuestionsList
-		brief.TakenActionsList = &actionsList
+	if flagStore != nil {
+		flagAnswer, err := flagStore.Evaluate("detailed_handoff_brief", userID)
+		if err == nil && flagAnswer.InRollout == true && *flagAnswer.Variant == "detailed" {
+			brief.OpenQuestionList = &openQuestionsList
+			brief.TakenActionsList = &actionsList
+		}
 	}
 	return brief
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"hash/fnv"
 	"sync"
 )
@@ -75,7 +74,6 @@ func (flagStore *FlagStore) Evaluate(flagName string, userID string) (*FlagEvalu
 
 	var answer FlagEvaluateAnswer
 	bucket := hashRollout % 100
-	fmt.Println(bucket)
 	if userID == "" || flag.Enabled == false || int(bucket) >= flag.Rollout {
 		answer = FlagEvaluateAnswer{
 			Name:      flagName,
