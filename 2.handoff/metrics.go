@@ -4,8 +4,24 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var (
-	httpRequestsTotal = prometheus.NewCounterVec(
+type HTTPMetrics struct {
+	HTTPRequestTotal    *prometheus.CounterVec
+	HttpDurationSeconds *prometheus.HistogramVec
+}
+
+type IncidentStoreMetrics struct {
+	IncidentTotal          *prometheus.GaugeVec
+	TotalEntries           prometheus.Counter
+	DbQueryDurationSeconds *prometheus.HistogramVec
+}
+
+type RegistryMetric struct {
+	wsConnections prometheus.Gauge
+}
+
+func NewHttpMetrics(reg *prometheus.Registry) *HTTPMetrics {
+	m := HTTPMetrics{}
+	m.HTTPRequestTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "handoff_http_requests_total",
 			Help: "	Total requests",
@@ -13,7 +29,7 @@ var (
 		[]string{"method", "path", "status_code"},
 	)
 
-	httpDurationSeconds = prometheus.NewHistogramVec(
+	m.HttpDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: "handoff_http_request_duration_seconds",
 			Help: "Request latency distribution",
@@ -22,8 +38,13 @@ var (
 		},
 		[]string{"method", "path"},
 	)
+	reg.MustRegister(m.HTTPRequestTotal, m.HttpDurationSeconds)
+	return &m
+}
 
-	incidentTotal = prometheus.NewGaugeVec(
+func NewIncidentStoreMetric(reg *prometheus.Registry) *IncidentStoreMetrics {
+	m := IncidentStoreMetrics{}
+	m.IncidentTotal = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "handoff_incidents_total",
 			Help: "Current number of incidents",
@@ -31,14 +52,14 @@ var (
 		[]string{"status"},
 	)
 
-	totalEntries = prometheus.NewCounter(
+	m.TotalEntries = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "handoff_entries_total",
 			Help: "Total timeline entries created",
 		},
 	)
 
-	dbQueryDurationSeconds = prometheus.NewHistogramVec(
+	m.DbQueryDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "handoff_db_query_duration_seconds",
 			Help:    "Database query latency",
@@ -46,20 +67,18 @@ var (
 		},
 		[]string{"operation"},
 	)
+	reg.MustRegister(m.IncidentTotal, m.TotalEntries, m.DbQueryDurationSeconds)
+	return &m
+}
 
-	wsConnections = prometheus.NewGauge(
+func NewRegistryMetric(reg *prometheus.Registry) *RegistryMetric {
+	m := RegistryMetric{}
+	m.wsConnections = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "handoff_websocket_connections",
 			Help: "Current number of active WebSocket connections",
 		},
 	)
-)
-
-func NewMetrics(reg *prometheus.Registry) {
-	reg.MustRegister(httpRequestsTotal)
-	reg.MustRegister(httpDurationSeconds)
-	reg.MustRegister(incidentTotal)
-	reg.MustRegister(totalEntries)
-	reg.MustRegister(dbQueryDurationSeconds)
-	reg.MustRegister(wsConnections)
+	reg.MustRegister(m.wsConnections)
+	return &m
 }
