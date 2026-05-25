@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -152,43 +153,34 @@ func TestGetIncident404(t *testing.T) {
 // 	return httptest.NewServer(router)
 // }
 
-// func TestCreateIncident(t *testing.T) {
-// 	srv := newTestServer(t)
-// 	defer srv.Close()
+func TestCreateIncident(t *testing.T) {
 
-// 	t.Run("Create Incident", func(t *testing.T) {
-// 		incCreateRequest := validCreateIncidentRequest()
-// 		body, err := json.Marshal(incCreateRequest)
-// 		if err != nil {
-// 			t.Fatalf("can't Marshal CreateIncidentRequest, err %v", err)
-// 		}
-// 		// Send request
-// 		res, err := http.Post(srv.URL+"/incidents", "application/json", bytes.NewReader(body))
-// 		if err != nil {
-// 			t.Fatalf("expected non error, get %v", err)
-// 		}
+	incCreateRequest := validCreateIncidentRequest()
+	store := NewMemoryIncidentStore()
+	store.CreateIncident(context.Background(), incCreateRequest)
+	handler := IncidentHandler{IncidentStore: store}
 
-// 		if res.StatusCode != http.StatusCreated {
-// 			t.Fatalf("status code expected %v, get %v", http.StatusCreated, res.StatusCode)
-// 		}
-// 		// Evaluate
-// 		var response Incident
-// 		json.NewDecoder(res.Body).Decode(&response)
-
-// 		if res.StatusCode != http.StatusCreated {
-// 			t.Fatalf("status code expected %v, get %v", http.StatusCreated, res.StatusCode)
-// 		}
-// 		if response.ID != "INC-1" {
-// 			t.Fatalf("status code expected %v, get %v", "INC-1", response.ID)
-// 		}
-// 		if response.Title != incCreateRequest.Title {
-// 			t.Fatalf("title expected %v, got %v", incCreateRequest.Title, response.Title)
-// 		}
-// 		if response.Severity != incCreateRequest.Severity {
-// 			t.Fatalf("Severity expected %v, got %v", incCreateRequest.Severity, response.Severity)
-// 		}
-// 		if response.Service != incCreateRequest.Service {
-// 			t.Fatalf("Service expected %v, got %v", incCreateRequest.Service, response.Service)
-// 		}
-// 	})
-// }
+	bodyRaw, _ := json.Marshal(incCreateRequest)
+	req := httptest.NewRequest("POST", "/incident", bytes.NewReader(bodyRaw))
+	appRes, err := handler.CreateIncident(req)
+	if err != nil {
+		t.Fatalf("expected no error, get %v", err)
+	}
+	if appRes.Status != http.StatusCreated {
+		t.Fatalf("status code expected %v, get %v", http.StatusCreated, appRes.Status)
+	}
+	// Evaluate
+	response := appRes.Body.(Incident)
+	if response.ID != "INC-2" {
+		t.Fatalf("status code expected %v, get %v", "INC-2", response.ID)
+	}
+	if response.Title != incCreateRequest.Title {
+		t.Fatalf("title expected %v, got %v", incCreateRequest.Title, response.Title)
+	}
+	if response.Severity != incCreateRequest.Severity {
+		t.Fatalf("Severity expected %v, got %v", incCreateRequest.Severity, response.Severity)
+	}
+	if response.Service != incCreateRequest.Service {
+		t.Fatalf("Service expected %v, got %v", incCreateRequest.Service, response.Service)
+	}
+}
