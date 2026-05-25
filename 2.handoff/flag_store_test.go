@@ -20,7 +20,7 @@ func TestFlagCreate(t *testing.T) {
 
 	err := flagStore.Create(featureFlag)
 	if err != nil {
-		t.Fatalf("expect no err, got err %v", err)
+		t.Fatalf("expect no err, got err %v", err.Error())
 	}
 	if len(flagStore.Flags) != 1 {
 		t.Errorf("expected 1, get %v", len(flagStore.Flags))
@@ -87,7 +87,7 @@ func TestFlagUpdate(t *testing.T) {
 		enabled := true
 		err := flagStore.Update(FeatureFlagUpdate{Name: "nonexistent", Enabled: &enabled})
 		if !errors.Is(err, ErrFlagNotfound) {
-			t.Errorf("expected ErrFlagNotfound, got %v", err)
+			t.Errorf("expected ErrFlagNotfound, got %v", err.Error())
 		}
 	})
 }
@@ -136,7 +136,7 @@ func TestFlagStore_Evaluate(t *testing.T) {
 	t.Run("flag not found", func(t *testing.T) {
 		_, err := fs.Evaluate("nonexistent", "user1")
 		if !errors.Is(err, ErrFlagNotfound) {
-			t.Errorf("expected ErrFlagNotfound, got %v", err)
+			t.Errorf("expected ErrFlagNotfound, got %v", err.Error())
 		}
 	})
 

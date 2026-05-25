@@ -30,16 +30,12 @@ func TestCreateFlag(t *testing.T) {
 		t.Run("Create Flag Normally", func(t *testing.T) {
 			// create featureFlag1
 			featureFlag1 := validFeatureFlag()
-			body1, err1 := json.Marshal(featureFlag1)
-			if err1 != nil {
-				t.Fatal("can't Marshal FeatureFlag1")
-			}
-
+			body1, _ := json.Marshal(featureFlag1)
 			req1 := httptest.NewRequest("POST", "/flags", bytes.NewReader(body1))
 			appRes1, err1 := flagHandler.CreateFlag(req1)
 
 			if err1 != nil {
-				t.Fatalf("expected no error, got error %v", err1)
+				t.Fatalf("expected no error, got error %v", err1.Error())
 			}
 			if appRes1.Status != http.StatusCreated {
 				t.Fatalf("expected status %v, got  %v", http.StatusCreated, appRes1.Status)
@@ -52,14 +48,11 @@ func TestCreateFlag(t *testing.T) {
 			// create featureFlag2
 			featureFlag2 := validFeatureFlag()
 			featureFlag2.Name = "test-feature-flag-2"
-			body2, err2 := json.Marshal(featureFlag2)
-			if err2 != nil {
-				t.Fatal("can't Marshal FeatureFlag2")
-			}
+			body2, _ := json.Marshal(featureFlag2)
 			req2 := httptest.NewRequest("POST", "/flags", bytes.NewReader(body2))
 			appRes2, err2 := flagHandler.CreateFlag(req2)
 			if err2 != nil {
-				t.Fatalf("expected no error, got error %v", err2)
+				t.Fatalf("expected no error, got error %v", err2.Error())
 			}
 			if appRes2.Status != http.StatusCreated {
 				t.Fatalf("expected status %v, got  %v", http.StatusCreated, appRes2.Status)
@@ -71,14 +64,9 @@ func TestCreateFlag(t *testing.T) {
 		})
 
 		t.Run("Create Flag Conflict", func(t *testing.T) {
-			body, err := json.Marshal(validFeatureFlag())
-
-			if err != nil {
-				t.Fatal("can't Marshal FeatureFlag")
-			}
-
+			body, _ := json.Marshal(validFeatureFlag())
 			req := httptest.NewRequest("POST", "/flags", bytes.NewReader(body))
-			_, err = flagHandler.CreateFlag(req)
+			_, err := flagHandler.CreateFlag(req)
 
 			if err == nil {
 				t.Fatal("expected error conflict, got no error")
@@ -94,14 +82,11 @@ func TestCreateFlag(t *testing.T) {
 
 	t.Run("test UpdateFlag func", func(t *testing.T) {
 		t.Run("Update Flag Notfound", func(t *testing.T) {
-			body, err := json.Marshal(FeatureFlagUpdate{Name: "not-exist-feature-flag", Rollout: new(60)})
-			if err != nil {
-				t.Fatal("can't marshal FeatureFlagUpdate")
-			}
+			body, _ := json.Marshal(FeatureFlagUpdate{Name: "not-exist-feature-flag", Rollout: new(60)})
 			req := httptest.NewRequest("POST", "/flags/not-exist-feature-flag", bytes.NewReader(body))
 			req.SetPathValue("name", "not-exist-feature-flag")
 
-			_, err = flagHandler.UpdateFlag(req)
+			_, err := flagHandler.UpdateFlag(req)
 			if err == nil {
 				t.Fatalf("expected error, got no error")
 			}
@@ -114,10 +99,7 @@ func TestCreateFlag(t *testing.T) {
 
 		t.Run("Update Flag", func(t *testing.T) {
 			update := validFeatureFlagUpdate()
-			body, err := json.Marshal(update)
-			if err != nil {
-				t.Fatal("can't marshal FeatureFlagUpdate")
-			}
+			body, _ := json.Marshal(update)
 			req := httptest.NewRequest("POST", fmt.Sprintf("/flag/%v", update.Name), bytes.NewReader(body))
 			req.SetPathValue("name", update.Name)
 
@@ -135,7 +117,7 @@ func TestCreateFlag(t *testing.T) {
 		req := httptest.NewRequest("GET", "/flags", nil)
 		appRes, err := flagHandler.ListAllFlag(req)
 		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
+			t.Fatalf("expected no error, got %v", err.Error())
 		}
 		if appRes.Status != http.StatusOK {
 			t.Fatalf("expected status %v, got %v", http.StatusOK, appRes.Status)
@@ -152,7 +134,7 @@ func TestCreateFlag(t *testing.T) {
 		req.SetPathValue("name", featureFlag1.Name)
 		appRes, err := flagHandler.Evaluate(req)
 		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
+			t.Fatalf("expected no error, got %v", err.Error())
 		}
 		if appRes.Status != http.StatusOK {
 			t.Fatalf("expected status %v, got %v", http.StatusOK, appRes.Status)

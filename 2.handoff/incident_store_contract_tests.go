@@ -183,7 +183,7 @@ func TestIncidentStoreUpdateIncident(t *testing.T, makeStore func(t *testing.T) 
 			Status: new(RESOLVED),
 		})
 		if !errors.Is(err, ErrIncidentNotFound) {
-			t.Errorf("expected ErrIncidentNotFound, got %v", err)
+			t.Errorf("expected ErrIncidentNotFound, got %v", err.Error())
 		}
 	})
 }
@@ -228,7 +228,7 @@ func TestIncidentStoreAddEntry(t *testing.T, makeStore func(t *testing.T) Incide
 			Author: "anh", Type: "observation", Text: "test",
 		})
 		if !errors.Is(err, ErrIncidentNotFound) {
-			t.Errorf("expected ErrIncidentNotFound, got %v", err)
+			t.Errorf("expected ErrIncidentNotFound, got %v", err.Error())
 		}
 	})
 
@@ -242,7 +242,7 @@ func TestIncidentStoreAddEntry(t *testing.T, makeStore func(t *testing.T) Incide
 			Author: "anh", Type: "observation", Text: "too late",
 		})
 		if !errors.Is(err, ErrIncidentConflict) {
-			t.Errorf("expected ErrIncidentConflict, got %v", err)
+			t.Errorf("expected ErrIncidentConflict, got %v", err.Error())
 		}
 	})
 }

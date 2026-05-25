@@ -15,7 +15,7 @@ func TestCreateIncidentRequest_Validate(t *testing.T) {
 	t.Run("valid request", func(t *testing.T) {
 		r := valid()
 		if err := r.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -63,7 +63,7 @@ func TestCreateIncidentRequest_Validate(t *testing.T) {
 		r := valid()
 		r.OnCall = new("bernd")
 		if err := r.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -79,7 +79,7 @@ func TestCreateIncidentRequest_Validate(t *testing.T) {
 		r := valid()
 		r.OnCall = nil
 		if err := r.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -108,7 +108,7 @@ func TestTimelineEntry_Validate(t *testing.T) {
 	t.Run("valid entry", func(t *testing.T) {
 		e := valid()
 		if err := e.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -157,7 +157,7 @@ func TestIncidentFilter_Validate(t *testing.T) {
 	t.Run("empty filter valid", func(t *testing.T) {
 		f := IncidentFilter{}
 		if err := f.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -180,14 +180,14 @@ func TestIncidentFilter_Validate(t *testing.T) {
 	t.Run("service passes through", func(t *testing.T) {
 		f := IncidentFilter{Service: "api"}
 		if err := f.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
 	t.Run("empty service not fail", func(t *testing.T) {
 		f := IncidentFilter{Service: "  "}
 		if err := f.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 }
@@ -196,7 +196,7 @@ func TestIncidentUpdate_Validate(t *testing.T) {
 	t.Run("valid status", func(t *testing.T) {
 		u := IncidentUpdate{Status: new(RESOLVED)}
 		if err := u.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -210,7 +210,7 @@ func TestIncidentUpdate_Validate(t *testing.T) {
 	t.Run("valid severity", func(t *testing.T) {
 		u := IncidentUpdate{Severity: new(SEV2)}
 		if err := u.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -224,7 +224,7 @@ func TestIncidentUpdate_Validate(t *testing.T) {
 	t.Run("valid on_call", func(t *testing.T) {
 		u := IncidentUpdate{OnCall: new("bernd")}
 		if err := u.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -274,7 +274,7 @@ func TestFeatureFlag_Validate(t *testing.T) {
 	t.Run("valid flag", func(t *testing.T) {
 		f := valid()
 		if err := f.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -306,7 +306,7 @@ func TestFeatureFlag_Validate(t *testing.T) {
 		f := valid()
 		f.Rollout = 0
 		if err := f.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -314,7 +314,7 @@ func TestFeatureFlag_Validate(t *testing.T) {
 		f := valid()
 		f.Rollout = 100
 		if err := f.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -355,14 +355,14 @@ func TestFeatureFlagUpdate_Validate(t *testing.T) {
 	t.Run("valid enabled only", func(t *testing.T) {
 		u := FeatureFlagUpdate{Name: "flag1", Enabled: new(true)}
 		if err := u.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
 	t.Run("valid rollout only", func(t *testing.T) {
 		u := FeatureFlagUpdate{Name: "flag1", Rollout: new(50)}
 		if err := u.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
@@ -397,14 +397,14 @@ func TestFeatureFlagUpdate_Validate(t *testing.T) {
 	t.Run("rollout boundary 0", func(t *testing.T) {
 		u := FeatureFlagUpdate{Name: "flag1", Rollout: new(0)}
 		if err := u.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
 	t.Run("rollout boundary 100", func(t *testing.T) {
 		u := FeatureFlagUpdate{Name: "flag1", Rollout: new(100)}
 		if err := u.Validate(); err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 }
