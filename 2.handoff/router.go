@@ -30,8 +30,8 @@ func getRouter(incHandler *IncidentHandler, flagHander *FlagHandler,
 
 	// metrics, health and ready
 	mux.Handle("/metrics", promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{Registry: promRegistry}))
-	// mux.HandleFunc("GET /healthz", healthCheck)
-	// mux.HandleFunc("GET /readyz", readyCheck(mongoClient))
+	mux.HandleFunc("GET /healthz", healthCheck)
+	mux.HandleFunc("GET /readyz", readyCheck(mongoClient))
 
 	router := RequestIDMiddleware(ObservabilityMiddleware(httpMatrics)(CORSMiddleware(TimeoutMiddleware(mux))))
 	return router
