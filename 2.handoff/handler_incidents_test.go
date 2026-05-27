@@ -289,3 +289,61 @@ func TestAddEntry(t *testing.T) {
 		t.Fatalf("type expected %v, get %v", OBSERVATION, respEntry2["type"])
 	}
 }
+
+func TestUpdateIncident(t *testing.T) {
+	srv := newTestServer(t)
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/incidents/INC-1/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("expected no error, get error %v", err.Error())
+	}
+	defer conn.Close()
+
+	incidentUpdate := IncidentUpdate{
+		Status:   new(RESOLVED),
+		Severity: new("SEV2"),
+	}
+	bodyRaw, _ := json.Marshal(incidentUpdate)
+
+	// HTTP Respsone
+	req, err := http.NewRequest(http.MethodPatch, srv.URL+"/incidents/INC-1", bytes.NewReader(bodyRaw))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status code expected %v, got %v", http.StatusNoContent, resp.StatusCode)
+	}
+
+	// Websocket Response
+	_, msgRaw, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("Expected no error, get %v", err)
+	}
+	var wsMsg map[string]any
+	json.Unmarshal(msgRaw, &wsMsg)
+	if wsMsg["type"] != "incident_updated" {
+		t.Fatalf("expected type %v, get %v", "incident_updated", wsMsg["type"])
+	}
+
+	incidentRaw, err := json.Marshal(wsMsg["incident"])
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err.Error())
+	}
+
+	var resIncident map[string]string
+	json.Unmarshal(incidentRaw, &resIncident)
+
+	if resIncident["id"] != "INC-1" {
+		t.Fatalf("expected Incident ID %v, get %v", "INC-1", wsMsg["incident_id"])
+	}
+	if resIncident["status"] != RESOLVED {
+		t.Fatalf("author expected %v, get %v", RESOLVED, resIncident["status"])
+	}
+	if resIncident["severity"] != "SEV2" {
+		t.Fatalf("type expected %v, get %v", "SEV2", resIncident["severity"])
+	}
+}
