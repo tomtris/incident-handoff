@@ -19,6 +19,44 @@ type Incident struct {
 	Entries   []TimelineEntry `json:"entries" bson:"entries"`
 }
 
+type CreateIncidentRequest struct {
+	Title    string  `json:"title" bson:"title"`
+	Service  string  `json:"service" bson:"service"`
+	Severity string  `json:"severity" bson:"severity"` // SEV1, SEV2, SEV3
+	OpenedBy string  `json:"opened_by" bson:"opened_by"`
+	OnCall   *string `json:"on_call,omitempty" bson:"on_call"`
+}
+
+func (c *CreateIncidentRequest) Validate() error {
+	c.Title = strings.TrimSpace(c.Title)
+	if c.Title == "" {
+		return ErrNoTitle
+	}
+
+	c.Service = strings.TrimSpace(c.Service)
+	if c.Service == "" {
+		return ErrNoService
+	}
+
+	c.Severity = strings.TrimSpace(c.Severity)
+	if IncidentSeverity[c.Severity] == false {
+		return ErrInvalidSeverity
+	}
+
+	c.OpenedBy = strings.TrimSpace(c.OpenedBy)
+	if c.OpenedBy == "" {
+		return ErrOpenedBy
+	}
+
+	if c.OnCall != nil {
+		*c.OnCall = strings.TrimSpace(*c.OnCall)
+		if *c.OnCall == "" {
+			return ErrOnCall
+		}
+	}
+	return nil
+}
+
 type TimelineEntry struct {
 	ID     string    `json:"id" bson:"id"`
 	Time   time.Time `json:"time" bson:"time"`
@@ -64,67 +102,30 @@ type IncidentUpdate struct {
 }
 
 func (f *IncidentUpdate) Validate() error {
-	switch {
-	case f.Status != nil:
+	if f.Status == nil && f.Severity == nil && f.OnCall == nil {
+		return ErrBadRequest
+	}
+
+	if f.Status != nil {
 		trimmed := strings.TrimSpace(*f.Status)
-		if IncidentStatus[trimmed] == false {
+		if IncidentStatus[trimmed] == false || trimmed == "active" {
 			return ErrBadIncidentStatus
 		}
-		*f = IncidentUpdate{Status: &trimmed}
-		return nil
-	case f.Severity != nil:
+		f.Status = &trimmed
+	}
+	if f.Severity != nil {
 		trimmed := strings.TrimSpace(*f.Severity)
 		if IncidentSeverity[trimmed] == false {
 			return ErrInvalidSeverity
 		}
-		*f = IncidentUpdate{Severity: &trimmed}
-		return nil
-	case f.OnCall != nil:
+		f.Severity = &trimmed
+	}
+	if f.OnCall != nil {
 		trimmed := strings.TrimSpace(*f.OnCall)
 		if trimmed == "" {
 			return ErrOnCall
 		}
-		*f = IncidentUpdate{OnCall: &trimmed}
-		return nil
-	default:
-		return ErrBadRequest
-	}
-}
-
-type CreateIncidentRequest struct {
-	Title    string  `json:"title" bson:"title"`
-	Service  string  `json:"service" bson:"service"`
-	Severity string  `json:"severity" bson:"severity"` // SEV1, SEV2, SEV3
-	OpenedBy string  `json:"opened_by" bson:"opened_by"`
-	OnCall   *string `json:"on_call,omitempty" bson:"on_call"`
-}
-
-func (c *CreateIncidentRequest) Validate() error {
-	c.Title = strings.TrimSpace(c.Title)
-	if c.Title == "" {
-		return ErrNoTitle
-	}
-
-	c.Service = strings.TrimSpace(c.Service)
-	if c.Service == "" {
-		return ErrNoService
-	}
-
-	c.Severity = strings.TrimSpace(c.Severity)
-	if IncidentSeverity[c.Severity] == false {
-		return ErrInvalidSeverity
-	}
-
-	c.OpenedBy = strings.TrimSpace(c.OpenedBy)
-	if c.OpenedBy == "" {
-		return ErrOpenedBy
-	}
-
-	if c.OnCall != nil {
-		*c.OnCall = strings.TrimSpace(*c.OnCall)
-		if *c.OnCall == "" {
-			return ErrOnCall
-		}
+		f.OnCall = &trimmed
 	}
 	return nil
 }
@@ -154,10 +155,10 @@ func (f *FeatureFlag) Validate() error {
 	if strings.TrimSpace(f.Name) == "" {
 		return ErrBadRequest
 	}
-	if f.Rollout < 0 && 100 > f.Rollout {
+	if f.Rollout < 0 || f.Rollout > 100 {
 		return ErrBadRequest
 	}
-	if f.Variants == nil {
+	if len(f.Variants) == 0 {
 		return ErrBadRequest
 	}
 	variants := make(map[string]bool)
@@ -183,8 +184,16 @@ func (u *FeatureFlagUpdate) Validate() error {
 	if u.Enabled == nil && u.Rollout == nil {
 		return errors.New("both enabled and rollout are empty")
 	}
-	if u.Rollout != nil && *u.Rollout < 0 && 100 > *u.Rollout {
+	if u.Rollout != nil && (*u.Rollout < 0 || *u.Rollout > 100) {
 		return errors.New("invalid rollout")
 	}
 	return nil
+}
+
+type FlagEvaluateAnswer struct {
+	Name      string  `json:"name"`
+	UserID    string  `json:"user_id"`
+	Enabled   bool    `json:"enabled"`
+	InRollout bool    `json:"in_rollout"`
+	Variant   *string `json:"variants"`
 }

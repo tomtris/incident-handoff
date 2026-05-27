@@ -6,10 +6,14 @@ import (
 	"net/http"
 )
 
+type FlagEvaluator interface {
+	Evaluate(flagName string, userID string) (*FlagEvaluateAnswer, error)
+}
+
 type IncidentHandler struct {
-	Store     Store
-	Registry  Registry
-	FlagStore FlagStore
+	IncidentStore IncidentStore
+	Registry      Registry
+	FlagEvaluator FlagEvaluator
 }
 
 func marshalNewEntryEvent(incidentID string, entry TimelineEntry) json.RawMessage {
@@ -26,275 +30,142 @@ func marshalNewEntryEvent(incidentID string, entry TimelineEntry) json.RawMessag
 	return data
 }
 
-func marshalIncidentUpdateEvent(incidentID string, incBefore Incident, update IncidentUpdate) json.RawMessage {
+func marshalIncidentUpdateEvent(incAfter Incident) json.RawMessage {
 	event := struct {
-		Type       string `json:"type"`
-		IncidentID string `json:"incident_id"`
-		Field      string `json:"field"`
-		OldValue   string `json:"old_value"`
-		NewValue   string `json:"new_value"`
+		Type     string   `json:"type"`
+		Incident Incident `json:"incident"`
 	}{
-		Type:       "incident_updated",
-		IncidentID: incidentID,
-	}
-
-	switch {
-	case update.Status != nil:
-		event.Field = "status"
-		event.OldValue = incBefore.Status
-		event.NewValue = *update.Status
-	case update.Severity != nil:
-		event.Field = "severity"
-		event.OldValue = incBefore.Severity
-		event.NewValue = *update.Severity
-	case update.OnCall != nil:
-		event.Field = "on_call"
-		event.OldValue = incBefore.OnCall
-		event.NewValue = *update.OnCall
+		Type:     "incident_updated",
+		Incident: incAfter,
 	}
 
 	data, _ := json.Marshal(event)
 	return data
 }
 
-func (incHandler *IncidentHandler) CreateIncident(w http.ResponseWriter, r *http.Request) {
-	RequestID := r.Context().Value(requestIDKey).(string)
+func (incHandler *IncidentHandler) CreateIncident(r *http.Request) (*AppResponse, error) {
 	req := CreateIncidentRequest{}
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, ErrorMessageJSON{
-			ErrorCode: BAD_REQUEST,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, BadRequest(err)
 	}
 
-	err = req.Validate()
-	if err != nil {
-		if errors.Is(err, ErrOnCall) {
-			writeError(w, http.StatusBadRequest, ErrorMessageJSON{
-				ErrorCode: BAD_REQUEST,
-				Message:   err.Error(),
-				RequestID: RequestID,
-			})
-			return
-		}
-		writeError(w, http.StatusBadRequest, ErrorMessageJSON{
-			ErrorCode: MISSING_FIELD,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+	if err := req.Validate(); err != nil {
+		return nil, BadRequest(err)
 	}
 
-	createdIncident, err := incHandler.Store.CreateIncident(r.Context(), Incident{
-		Title:    req.Title,
-		Service:  req.Service,
-		Severity: req.Severity,
-		OpenedBy: req.OpenedBy,
-		OnCall:   derefOrEmpty(req.OnCall),
-	})
-
+	createdIncident, err := incHandler.IncidentStore.CreateIncident(r.Context(), req)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, ErrorMessageJSON{
-			ErrorCode: INTERNAL_SERVER_ERROR,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+		return nil, InternalServerError(err)
 	}
 
-	writeJSON(w, http.StatusCreated, RequestID, createdIncident)
+	return newAppResponse(http.StatusCreated, createdIncident), nil
 }
 
-func (incHandler *IncidentHandler) GetIncident(w http.ResponseWriter, r *http.Request) {
-	RequestID := r.Context().Value(requestIDKey).(string)
+func (incHandler *IncidentHandler) GetIncident(r *http.Request) (*AppResponse, error) {
 	incidentID := r.PathValue("id")
-	inc, err := incHandler.Store.GetIncident(r.Context(), incidentID)
+	inc, err := incHandler.IncidentStore.GetIncident(r.Context(), incidentID)
+
 	if err != nil {
 		if errors.Is(err, ErrIncidentNotFound) {
-			writeError(w, http.StatusNotFound, ErrorMessageJSON{
-				ErrorCode: INCIDENT_NOT_FOUND,
-				Message:   err.Error(),
-				RequestID: RequestID,
-			})
-			return
+			return nil, NotFound(err)
 		}
-		writeError(w, http.StatusInternalServerError, ErrorMessageJSON{
-			ErrorCode: INTERNAL_SERVER_ERROR,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+		return nil, InternalServerError(err)
 	}
-	writeJSON(w, http.StatusOK, RequestID, inc)
+
+	return newAppResponse(http.StatusOK, inc), nil
 }
 
-func (incHandler *IncidentHandler) AddEntry(w http.ResponseWriter, r *http.Request) {
-	RequestID := r.Context().Value(requestIDKey).(string)
+func (incHandler *IncidentHandler) AddEntry(r *http.Request) (*AppResponse, error) {
 	timelineEntry := TimelineEntry{}
-	err := json.NewDecoder(r.Body).Decode(&timelineEntry)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, ErrorMessageJSON{
-			ErrorCode: BAD_REQUEST,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+
+	if err := json.NewDecoder(r.Body).Decode(&timelineEntry); err != nil {
+		return nil, BadRequest(err)
 	}
-	err = timelineEntry.Validate()
-	if err != nil {
-		if errors.Is(err, ErrBadEntryType) {
-			writeError(w, http.StatusBadRequest, ErrorMessageJSON{
-				ErrorCode: BAD_REQUEST,
-				Message:   err.Error(),
-				RequestID: RequestID,
-			})
-			return
-		}
-		writeError(w, http.StatusBadRequest, ErrorMessageJSON{
-			ErrorCode: MISSING_FIELD,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+	if err := timelineEntry.Validate(); err != nil {
+		return nil, BadRequest(err)
 	}
 	incidentID := r.PathValue("id")
-	newEntry, err := incHandler.Store.AddEntry(r.Context(), incidentID, timelineEntry)
+	newEntry, err := incHandler.IncidentStore.AddEntry(r.Context(), incidentID, timelineEntry)
+
 	if err != nil {
 		if errors.Is(err, ErrIncidentNotFound) {
-			writeError(w, http.StatusNotFound, ErrorMessageJSON{
-				ErrorCode: INCIDENT_NOT_FOUND,
-				Message:   err.Error(),
-				RequestID: RequestID,
-			})
-			return
+			return nil, NotFound(err)
 		}
-		// If the incident is already resolved
 		if errors.Is(err, ErrIncidentConflict) {
-			writeError(w, http.StatusConflict, ErrorMessageJSON{
-				ErrorCode: CONFLICT,
-				Message:   err.Error(),
-				RequestID: RequestID,
-			})
-			return
+			return nil, Conflict(err)
 		}
-		writeError(w, http.StatusInternalServerError, ErrorMessageJSON{
-			ErrorCode: INTERNAL_SERVER_ERROR,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+		return nil, InternalServerError(err)
 	}
+
 	incHandler.Registry.broadcast <- BroadcastMessage{
 		incidentID: incidentID,
 		msg:        marshalNewEntryEvent(incidentID, newEntry),
 	}
-	writeJSON(w, http.StatusCreated, RequestID, newEntry)
+
+	return newAppResponse(http.StatusCreated, newEntry), nil
 }
 
-func (incHandler *IncidentHandler) ListIncidents(w http.ResponseWriter, r *http.Request) {
-	RequestID := r.Context().Value(requestIDKey).(string)
+func (incHandler *IncidentHandler) ListIncidents(r *http.Request) (*AppResponse, error) {
 	incidentFilter := IncidentFilter{
 		Status:  r.URL.Query().Get("status"),
 		Service: r.URL.Query().Get("service"),
 	}
 
-	err := incidentFilter.Validate()
-	if err != nil {
-		writeError(w, http.StatusBadRequest, ErrorMessageJSON{
-			ErrorCode: BAD_REQUEST,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+	if err := incidentFilter.Validate(); err != nil {
+		return nil, BadRequest(err)
 	}
 
-	filteredIncidents, err := incHandler.Store.ListIncidents(r.Context(), incidentFilter)
+	filteredIncidents, err := incHandler.IncidentStore.ListIncidents(r.Context(), incidentFilter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, ErrorMessageJSON{
-			ErrorCode: INTERNAL_SERVER_ERROR,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+		return nil, InternalServerError(err)
 	}
-	writeJSON(w, http.StatusOK, RequestID, filteredIncidents)
+	return newAppResponse(http.StatusOK, filteredIncidents), nil
 }
 
-func (incHandler *IncidentHandler) UpdateIncident(w http.ResponseWriter, r *http.Request) {
-	RequestID := r.Context().Value(requestIDKey).(string)
+func (incHandler *IncidentHandler) UpdateIncident(r *http.Request) (*AppResponse, error) {
 	incidentUpdate := IncidentUpdate{}
-	err := json.NewDecoder(r.Body).Decode(&incidentUpdate)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, ErrorMessageJSON{
-			ErrorCode: BAD_REQUEST,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+	if err := json.NewDecoder(r.Body).Decode(&incidentUpdate); err != nil {
+		return nil, BadRequest(err)
 	}
-	err = incidentUpdate.Validate()
-	if err != nil {
-		writeError(w, http.StatusBadRequest, ErrorMessageJSON{
-			ErrorCode: BAD_REQUEST,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+	if err := incidentUpdate.Validate(); err != nil {
+		return nil, BadRequest(err)
 	}
+
 	incidentID := r.PathValue("id")
-	incBefore, err := incHandler.Store.UpdateIncident(r.Context(), incidentID, incidentUpdate)
+	incAfter, err := incHandler.IncidentStore.UpdateIncident(r.Context(), incidentID, incidentUpdate)
 	if err != nil {
 		if errors.Is(err, ErrIncidentNotFound) {
-			writeError(w, http.StatusNotFound, ErrorMessageJSON{
-				ErrorCode: INCIDENT_NOT_FOUND,
-				Message:   err.Error(),
-				RequestID: RequestID,
-			})
-			return
+			return nil, NotFound(err)
 		}
-		writeError(w, http.StatusInternalServerError, ErrorMessageJSON{
-			ErrorCode: INTERNAL_SERVER_ERROR,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+		return nil, InternalServerError(err)
 	}
+
 	incHandler.Registry.broadcast <- BroadcastMessage{
+		msg:        marshalIncidentUpdateEvent(incAfter),
 		incidentID: incidentID,
-		msg:        marshalIncidentUpdateEvent(incidentID, incBefore, incidentUpdate),
 	}
-	w.WriteHeader(http.StatusNoContent)
+	return newAppResponse(http.StatusNoContent, nil), nil
 }
 
-func (incHandler *IncidentHandler) GetHandoffBrief(w http.ResponseWriter, r *http.Request) {
-	RequestID := r.Context().Value(requestIDKey).(string)
+func (incHandler *IncidentHandler) GetHandoffBrief(r *http.Request) (*AppResponse, error) {
 	incidentID := r.PathValue("id")
-	inc, err := incHandler.Store.GetIncident(r.Context(), incidentID)
+	inc, err := incHandler.IncidentStore.GetIncident(r.Context(), incidentID)
+
 	if err != nil {
 		if errors.Is(err, ErrIncidentNotFound) {
-			writeError(w, http.StatusNotFound, ErrorMessageJSON{
-				ErrorCode: INCIDENT_NOT_FOUND,
-				Message:   err.Error(),
-				RequestID: RequestID,
-			})
-			return
+			return nil, NotFound(err)
 		}
-		writeError(w, http.StatusInternalServerError, ErrorMessageJSON{
-			ErrorCode: INTERNAL_SERVER_ERROR,
-			Message:   err.Error(),
-			RequestID: RequestID,
-		})
-		return
+		return nil, InternalServerError(err)
 	}
+
 	userID := r.URL.Query().Get("user_id")
-	writeJSON(w, http.StatusOK, RequestID, buildHandoffBrief(inc, &incHandler.FlagStore, userID))
+	body := buildHandoffBrief(inc, incHandler.FlagEvaluator, userID)
+	return newAppResponse(http.StatusOK, body), nil
 }
 
 func (incHandler *IncidentHandler) HandleIncidentWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
+
 	if err != nil {
 		RequestID := r.Context().Value(requestIDKey).(string)
 		writeError(w, http.StatusInternalServerError, ErrorMessageJSON{
@@ -304,6 +175,7 @@ func (incHandler *IncidentHandler) HandleIncidentWebSocket(w http.ResponseWriter
 		})
 		return
 	}
+
 	incidentID := r.PathValue("id")
 	client := newClient(incidentID, conn)
 	client.joinRegistry(&incHandler.Registry)

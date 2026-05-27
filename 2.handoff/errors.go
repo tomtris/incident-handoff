@@ -5,6 +5,29 @@ import (
 	"net/http"
 )
 
+type AppError struct {
+	Status int
+	Code   string
+	Err    error
+}
+
+func (e AppError) Error() string { return e.Err.Error() }
+
+func BadRequest(err error) error {
+	return &AppError{Status: http.StatusBadRequest, Code: "BAD_REQUEST", Err: err}
+}
+func InternalServerError(err error) error {
+	return &AppError{Status: http.StatusInternalServerError, Code: "INTERNAL_ERROR", Err: err}
+}
+
+func NotFound(err error) error {
+	return &AppError{Status: http.StatusNotFound, Code: "NOT FOUND", Err: err}
+}
+
+func Conflict(err error) error {
+	return &AppError{Status: http.StatusConflict, Code: "CONFLICT", Err: err}
+}
+
 type ErrorMessageJSON struct {
 	ErrorCode string `json:"code" bson:"code"`
 	Message   string `json:"message" bson:"message"`
@@ -32,6 +55,7 @@ var ErrOnCall = errors.New("Invalid on_call") //The variable on_call must be eit
 var ErrInternal = errors.New("Internal Error")
 
 var ErrFlagNotfound = errors.New("Flag Not Found")
+var ErrFlagAlreadyExist = errors.New("Flag is already in use")
 
 const (
 	INCIDENT_NOT_FOUND    = "INCIDENT_NOT_FOUND"

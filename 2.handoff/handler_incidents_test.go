@@ -1,474 +1,377 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-func TestCreateIncident(t *testing.T) {
-	config := loadConfig()
-	client, store := NewStore(config)
-	incHandler := IncidentHandler{Store: store, Registry: NewRegistry()}
-	router := getRouter(&incHandler, client, prometheus.NewRegistry())
-	go incHandler.Registry.run()
-	defer close(incHandler.Registry.done)
-	if instrumented, ok := store.(*InstrumentedStore); ok {
-		if ms, ok := instrumented.s.(*MongoStore); ok {
-			ms.DropAll(context.Background())
-		}
+func TestMarshalNewEntryEvent(t *testing.T) {
+	entryTimeline := TimelineEntry{
+		ID:     "TLE-1",
+		Time:   time.Now(),
+		Author: "anh",
+		Type:   OBSERVATION,
+		Text:   "test entry",
 	}
+	rawMsg := marshalNewEntryEvent("INC-test1", entryTimeline)
+	var event map[string]any
+	json.Unmarshal(rawMsg, &event)
 
-	t.Run("Normal Request", func(t *testing.T) {
-
-		body := `{"title": "order-service request drop", "service": "order-service", "severity": "SEV1", "opened_by": "Anh Nguyen"}`
-		req := httptest.NewRequest("POST", "/incidents", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
-
-		if rec.Code != 201 {
-			t.Errorf("Code expected %d, got %d", 200, rec.Code)
-		}
-
-		var got Incident
-		json.NewDecoder(rec.Body).Decode(&got)
-
-		expect := Incident{
-			ID:       "INC-1",
-			Title:    "order-service request drop",
-			Service:  "order-service",
-			Severity: "SEV1",
-			OpenedBy: "Anh Nguyen",
-		}
-
-		if got.ID != expect.ID {
-			t.Errorf("ID expect %s got %s", expect.ID, got.ID)
-		}
-		if got.Title != expect.Title {
-			t.Errorf("Title expect %s got %s", expect.Title, got.Title)
-		}
-		if got.Service != expect.Service {
-			t.Errorf("Service expect %s got %s", expect.Service, got.Service)
-		}
-		if got.Severity != expect.Severity {
-			t.Errorf("Severity expect %s got %s", expect.Severity, got.Severity)
-		}
-		if got.OpenedBy != expect.OpenedBy {
-			t.Errorf("OpenedBy expect %s got %s", expect.OpenedBy, got.OpenedBy)
-		}
-	})
-	tests := []struct {
-		name         string
-		body         string
-		responseCode int
-		errorCode    string
-		message      string
-	}{
-		{"Missing fields_title", `{"title": "", "service": "order-service", "severity": "SEV1", "opened_by": "Anh Nguyen"}`, 400, MISSING_FIELD, ErrNoTitle.Error()},
-		{"Missing fields_service", `{"title": "order-service request drop", "service": "", "severity": "SEV1", "opened_by": "Anh Nguyen"}`, 400, MISSING_FIELD, ErrNoService.Error()},
-		{"Missing fields_severity4", `{"title": "order-service request drop", "service": "order-service", "severity": "SEV4", "opened_by": "Anh Nguyen"}`, 400, MISSING_FIELD, ErrInvalidSeverity.Error()},
-		{"Missing fields_open_by", `{"title": "order-service request drop", "service": "order-service", "severity": "SEV1", "opened_by": ""}`, 400, MISSING_FIELD, ErrOpenedBy.Error()},
-		{"Missing fields_on_call", `{"title": "order-service request drop", "service": "order-service", "severity": "SEV1", "opened_by": ""}`, 400, MISSING_FIELD, ErrOpenedBy.Error()},
-		{"Missing fields_on_call", `{"title": "order-service request drop", "service": "order-service", "severity": "SEV1", "opened_by": "Anh Nguyen", "on_call": ""}`, 400, BAD_REQUEST, ErrOnCall.Error()},
+	if event["type"] != "new_entry" {
+		t.Fatalf("type expected %v, get %v", OBSERVATION, event["type"])
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/incidents", strings.NewReader(test.body))
-			req.Header.Set("Content-Type", "application/json")
-			rec := httptest.NewRecorder()
-			router.ServeHTTP(rec, req)
-
-			if rec.Code != test.responseCode {
-				t.Errorf("Response Code expected §%d§, got %d", test.responseCode, rec.Code)
-			}
-
-			var got map[string]map[string]string
-			json.NewDecoder(rec.Body).Decode(&got)
-
-			if got["error"]["code"] != test.errorCode {
-				t.Errorf("Error code expected §%s§, got §%s§", test.errorCode, got["error"]["code"])
-			}
-			if got["error"]["message"] != test.message {
-				t.Errorf("Error message expected %s, got %s", test.message, got["error"]["message"])
-			}
-		})
+	if event["incident_id"] != "INC-test1" {
+		t.Fatalf("incident_id %v, get %v", "INC-test1", event["incident_id"])
+	}
+	e := event["entry"].(map[string](any))
+	if e["author"] != "anh" {
+		t.Fatalf("author expected %v, get %v", "anh", e["author"])
+	}
+	if e["type"] != OBSERVATION {
+		t.Fatalf("type expected %v, get %v", OBSERVATION, e["type"])
 	}
 }
 
-func TestGetIncident(t *testing.T) {
-	config := loadConfig()
-	client, store := NewStore(config)
-	incHandler := IncidentHandler{Store: store, Registry: NewRegistry()}
-	router := getRouter(&incHandler, client, prometheus.NewRegistry())
-	go incHandler.Registry.run()
-	defer close(incHandler.Registry.done)
-	if instrumented, ok := store.(*InstrumentedStore); ok {
-		if ms, ok := instrumented.s.(*MongoStore); ok {
-			ms.DropAll(context.Background())
-		}
+func TestMarshalIncidentUpdateEvent(t *testing.T) {
+	inc := Incident{
+		ID:        "INC-test1",
+		Title:     "test title",
+		Service:   "test service",
+		Severity:  "SEV1",
+		Status:    TRIGGERED,
+		OpenedBy:  "anh",
+		OnCall:    "tom",
+		CreatedAt: time.Now().Add(-15 * time.Minute),
+		UpdatedAt: time.Now(),
+		Entries:   []TimelineEntry{},
 	}
 
-	rec1 := httptest.NewRecorder()
-	body := `{"title": "order-service request drop", "service": "order-service", "severity": "SEV1", "opened_by": "Anh Nguyen"}`
-	req1 := httptest.NewRequest("POST", "/incidents", strings.NewReader(body))
-	req1.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec1, req1)
+	rawMsg := marshalIncidentUpdateEvent(inc)
+	var event map[string]any
+	json.Unmarshal(rawMsg, &event)
+	if event["type"] != "incident_updated" {
+		t.Fatalf("type expected %v, get %v", "incident_updated", event["type"])
+	}
+	if event["type"] != "incident_updated" {
+		t.Fatalf("type expected %v, get %v", "incident_updated", event["type"])
+	}
+	e := event["incident"].(map[string]any)
+	if e["id"] != "INC-test1" {
+		t.Fatalf("id expected %v, get %v", "INC-test1", e["id"])
+	}
+	if e["service"] != "test service" {
+		t.Fatalf("id expected %v, get %v", "test service", e["service"])
+	}
+}
 
-	t.Run("Normal Get Incident", func(t *testing.T) {
+func TestGetIncidentOK(t *testing.T) {
+	store := NewMemoryIncidentStore()
+	validIncRequest := validCreateIncidentRequest()
+	store.CreateIncident(context.Background(), validIncRequest)
 
-		rec2 := httptest.NewRecorder()
-		req2 := httptest.NewRequest("GET", "/incidents/INC-1", strings.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
+	handler := IncidentHandler{IncidentStore: store}
+	req := httptest.NewRequest("GET", "/incident/INC-1", nil)
+	req.SetPathValue("id", "INC-1")
 
-		if rec2.Code != 200 {
-			t.Errorf("Code expected %d, got %d", 200, rec2.Code)
-		}
+	res, err := handler.GetIncident(req)
 
-		var got2 Incident
-		json.NewDecoder(rec2.Body).Decode(&got2)
+	if err != nil {
+		t.Fatalf("expected no error, get error %v", err.Error())
+	}
+	if res.Status != http.StatusOK {
+		t.Fatalf("expected status %v, get %v", http.StatusOK, res.Status)
+	}
+	inc := res.Body.(Incident)
+	if inc.ID != "INC-1" {
+		t.Fatalf("expected id %v, get %v", "INC-1", inc.ID)
+	}
+	if inc.Title != validIncRequest.Title {
+		t.Fatalf("expected Title %v, get %v", validIncRequest.Title, inc.Title)
+	}
+	if inc.Service != validIncRequest.Service {
+		t.Fatalf("expected Service %v, get %v", validIncRequest.Service, inc.Service)
+	}
+	if inc.Severity != validIncRequest.Severity {
+		t.Fatalf("expected Severity %v, get %v", validIncRequest.Severity, inc.Severity)
+	}
+	if inc.OpenedBy != validIncRequest.OpenedBy {
+		t.Fatalf("expected OpenedBy %v, get %v", validIncRequest.OpenedBy, inc.OpenedBy)
+	}
+	if inc.OnCall != *validIncRequest.OnCall {
+		t.Fatalf("expected OnCall %v, get %v", validIncRequest.OnCall, inc.OnCall)
+	}
+}
 
-		expect := Incident{
-			ID:       "INC-1",
-			Title:    "order-service request drop",
-			Service:  "order-service",
-			Severity: "SEV1",
-			OpenedBy: "Anh Nguyen",
-		}
+func TestGetIncident404(t *testing.T) {
+	store := NewMemoryIncidentStore()
+	handler := IncidentHandler{IncidentStore: store}
+	req := httptest.NewRequest("GET", "/incident/INC-1", nil)
+	req.SetPathValue("id", "INC-1")
 
-		if got2.ID != expect.ID {
-			t.Errorf("ID expect %s got2 %s", expect.ID, got2.ID)
-		}
-		if got2.Title != expect.Title {
-			t.Errorf("Title expect %s got2 %s", expect.Title, got2.Title)
-		}
-		if got2.Service != expect.Service {
-			t.Errorf("Service expect %s got2 %s", expect.Service, got2.Service)
-		}
-		if got2.Severity != expect.Severity {
-			t.Errorf("Severity expect %s got2 %s", expect.Severity, got2.Severity)
-		}
-		if got2.OpenedBy != expect.OpenedBy {
-			t.Errorf("OpenedBy expect %s got2 %s", expect.OpenedBy, got2.OpenedBy)
-		}
-	})
-	t.Run("Failed GetIncident", func(t *testing.T) {
-		rec2 := httptest.NewRecorder()
-		req2 := httptest.NewRequest("GET", "/incidents/INC-2", strings.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
+	_, err := handler.GetIncident(req)
 
-		if rec2.Code != 404 {
-			t.Errorf("Code expected %d, got %d", 404, rec2.Code)
+	if err != nil {
+		var appErr *AppError
+		if errors.As(err, &appErr) {
+			if appErr.Status != 404 {
+				t.Fatalf("expected code 404, get %v", appErr.Status)
+			}
+		} else {
+			t.Fatalf("expected no *AppError")
 		}
-	})
+	}
+}
+
+func TestCreateIncident(t *testing.T) {
+
+	incCreateRequest := validCreateIncidentRequest()
+	store := NewMemoryIncidentStore()
+	store.CreateIncident(context.Background(), incCreateRequest)
+	handler := IncidentHandler{IncidentStore: store}
+
+	bodyRaw, _ := json.Marshal(incCreateRequest)
+	req := httptest.NewRequest("POST", "/incident", bytes.NewReader(bodyRaw))
+	appRes, err := handler.CreateIncident(req)
+	if err != nil {
+		t.Fatalf("expected no error, get %v", err.Error())
+	}
+	if appRes.Status != http.StatusCreated {
+		t.Fatalf("status code expected %v, get %v", http.StatusCreated, appRes.Status)
+	}
+	// Evaluate
+	response := appRes.Body.(Incident)
+	if response.ID != "INC-2" {
+		t.Fatalf("status code expected %v, get %v", "INC-2", response.ID)
+	}
+	if response.Title != incCreateRequest.Title {
+		t.Fatalf("title expected %v, got %v", incCreateRequest.Title, response.Title)
+	}
+	if response.Severity != incCreateRequest.Severity {
+		t.Fatalf("Severity expected %v, got %v", incCreateRequest.Severity, response.Severity)
+	}
+	if response.Service != incCreateRequest.Service {
+		t.Fatalf("Service expected %v, got %v", incCreateRequest.Service, response.Service)
+	}
 }
 
 func TestListIncident(t *testing.T) {
-	config := loadConfig()
-	client, store := NewStore(config)
-	incHandler := IncidentHandler{Store: store, Registry: NewRegistry()}
-	router := getRouter(&incHandler, client, prometheus.NewRegistry())
-	go incHandler.Registry.run()
-	defer close(incHandler.Registry.done)
-	if instrumented, ok := store.(*InstrumentedStore); ok {
-		if ms, ok := instrumented.s.(*MongoStore); ok {
-			ms.DropAll(context.Background())
-		}
-	}
 
-	rec1 := httptest.NewRecorder()
-	body := `{"title": "order-service request drop", "service": "order-service", "severity": "SEV1", "opened_by": "Anh Nguyen"}`
-	req1 := httptest.NewRequest("POST", "/incidents", strings.NewReader(body))
-	req1.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec1, req1)
+	store := NewMemoryIncidentStore()
+	incCreateRequest := validCreateIncidentRequest()
+	store.CreateIncident(context.Background(), incCreateRequest)
+	incCreateRequest.Title = "123"
+	store.CreateIncident(context.Background(), incCreateRequest)
+	incCreateRequest.Service = "no services"
+	store.CreateIncident(context.Background(), incCreateRequest)
+	incCreateRequest.Severity = "SEV3"
+	store.CreateIncident(context.Background(), incCreateRequest)
 
-	rec9 := httptest.NewRecorder()
-	body = `{"title": "title2", "service": "service2", "severity": "SEV2", "opened_by": "tom2"}`
-	req9 := httptest.NewRequest("POST", "/incidents", strings.NewReader(body))
-	req9.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec9, req9)
+	handler := IncidentHandler{IncidentStore: store}
 
-	t.Run("Normal ListIncident", func(t *testing.T) {
-
-		rec2 := httptest.NewRecorder()
-		req2 := httptest.NewRequest("GET", "/incidents?status=active", nil)
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
-
-		if rec2.Code != 200 {
-			t.Errorf("Code expected %d, got %d", 200, rec2.Code)
-		}
-
-		var got []Incident
-		json.NewDecoder(rec2.Body).Decode(&got)
-
-		if len(got) != 2 {
-			t.Errorf("len expect %d got %d", 2, len(got))
-		}
-	})
-	t.Run("Failed ListIncident", func(t *testing.T) {
-
-		rec2 := httptest.NewRecorder()
-		req2 := httptest.NewRequest("GET", "/incidents?status=activ1e&service=order-service", nil)
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
-
-		if rec2.Code != 400 {
-			t.Errorf("Code expected %d, got %d", 400, rec2.Code)
-		}
-
-		var got []Incident
-		json.NewDecoder(rec2.Body).Decode(&got)
-
-		if rec2.Code != 400 {
-			t.Errorf("Code expected %d, got %d", 400, rec2.Code)
-		}
-	})
-}
-
-func TestUpdateIncident(t *testing.T) {
-	config := loadConfig()
-	client, store := NewStore(config)
-	incHandler := IncidentHandler{Store: store, Registry: NewRegistry()}
-	router := getRouter(&incHandler, client, prometheus.NewRegistry())
-	go incHandler.Registry.run()
-	defer close(incHandler.Registry.done)
-	if instrumented, ok := store.(*InstrumentedStore); ok {
-		if ms, ok := instrumented.s.(*MongoStore); ok {
-			ms.DropAll(context.Background())
-		}
-	}
-
-	rec1 := httptest.NewRecorder()
-	body1 := `{"title": "order-service request drop", "service": "order-service", "severity": "SEV1", "opened_by": "Anh Nguyen"}`
-	req1 := httptest.NewRequest("POST", "/incidents", strings.NewReader(body1))
-	req1.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec1, req1)
-
-	t.Run("Normal UpdateIncident ", func(t *testing.T) {
-		rec2 := httptest.NewRecorder()
-		body := `{"status":"resolved"}`
-		req2 := httptest.NewRequest("PATCH", "/incidents/INC-1", strings.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
-
-		if rec2.Code != 204 {
-			t.Errorf("Code expected %d, got %d", 204, rec2.Code)
-		}
-	})
-
-	t.Run("fail UpdateIncident ", func(t *testing.T) {
-		rec2 := httptest.NewRecorder()
-		body := `{"status":"resolve"}`
-		req2 := httptest.NewRequest("PATCH", "/incidents/INC-1", strings.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
-
-		if rec2.Code != 400 {
-			t.Errorf("Code expected %d, got %d", 400, rec2.Code)
-		}
-	})
-}
-
-func TestAddTimelineEntry(t *testing.T) {
-	config := loadConfig()
-	client, store := NewStore(config)
-	incHandler := IncidentHandler{Store: store, Registry: NewRegistry()}
-	router := getRouter(&incHandler, client, prometheus.NewRegistry())
-	go incHandler.Registry.run()
-	defer close(incHandler.Registry.done)
-	if instrumented, ok := store.(*InstrumentedStore); ok {
-		if ms, ok := instrumented.s.(*MongoStore); ok {
-			ms.DropAll(context.Background())
-		}
-	}
-
-	rec1 := httptest.NewRecorder()
-	body1 := `{"title": "order-service request drop", "service": "order-service", "severity": "SEV1", "opened_by": "Anh Nguyen"}`
-	req1 := httptest.NewRequest("POST", "/incidents", strings.NewReader(body1))
-	req1.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec1, req1)
-
-	t.Run("Normal addEntry ", func(t *testing.T) {
-		rec2 := httptest.NewRecorder()
-		body := `{"author":"Anh Nguyen","type":"observation","text":"Connection pool exhaustion. Pool at 100/100."}`
-		req2 := httptest.NewRequest("POST", "/incidents/INC-1/entries", strings.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
-
-		if rec2.Code != 201 {
-			t.Errorf("Code expected %d, got %d", 201, rec2.Code)
-		}
-
-		var got TimelineEntry
-		json.NewDecoder(rec2.Body).Decode(&got)
-
-		expect := TimelineEntry{
-			Author: "Anh Nguyen",
-			Type:   "observation",
-			Text:   "Connection pool exhaustion. Pool at 100/100.",
-		}
-
-		if got.Author != expect.Author {
-			t.Errorf("Author got %s, want %s", got.Author, expect.Author)
-		}
-		if got.Type != expect.Type {
-			t.Errorf("Type got %s, want %s", got.Type, expect.Type)
-		}
-		if got.Text != expect.Text {
-			t.Errorf("Text got %s, want %s", got.Text, expect.Text)
-		}
-	})
-	t.Run("Fail addEntry Missing field", func(t *testing.T) {
-		rec2 := httptest.NewRecorder()
-		body := `{"author":"","type":"observation","text":"Connection pool exhaustion. Pool at 100/100."}`
-		req2 := httptest.NewRequest("POST", "/incidents/INC-1/entries", strings.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
-
-		if rec2.Code != 400 {
-			t.Errorf("Code expected %d, got %d", 400, rec2.Code)
-		}
-	})
-	t.Run("Fail addEntry bad entry type", func(t *testing.T) {
-		rec2 := httptest.NewRecorder()
-		body := `{"author":"Anhh","type":"observa","text":"Connection pool exhaustion. Pool at 100/100."}`
-		req2 := httptest.NewRequest("POST", "/incidents/INC-1/entries", strings.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
-
-		if rec2.Code != 400 {
-			t.Errorf("Code expected %d, got %d", 400, rec2.Code)
-		}
-	})
-	t.Run("Fail addEntry non-existent incident", func(t *testing.T) {
-		rec2 := httptest.NewRecorder()
-		body := `{"author":"Anhh","type":"observation","text":"Connection pool exhaustion. Pool at 100/100."}`
-		req2 := httptest.NewRequest("POST", "/incidents/INC-2/entries", strings.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
-
-		if rec2.Code != 404 {
-			t.Errorf("Code expected %d, got %d", 404, rec2.Code)
-		}
-	})
-	t.Run("Fail addEntry conflict", func(t *testing.T) {
-		rec2 := httptest.NewRecorder()
-		body := `{"status":"resolved"}`
-		req2 := httptest.NewRequest("PATCH", "/incidents/INC-1", strings.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec2, req2)
-
-		if rec2.Code != 204 {
-			t.Errorf("Code expected %d, got %d", 204, rec2.Code)
-		}
-
-		rec3 := httptest.NewRecorder()
-		body3 := `{"author":"abc","type":"observation","text":"Connection pool exhaustion. Pool at 100/100."}`
-		req3 := httptest.NewRequest("POST", "/incidents/INC-1/entries", strings.NewReader(body3))
-		req3.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec3, req3)
-
-		if rec3.Code != 409 {
-			t.Errorf("Code expected %d, got %d", 409, rec3.Code)
-		}
-
-	})
-}
-
-func TestHandleIncidentWebSocket(t *testing.T) {
-	config := loadConfig()
-	client, store := NewStore(config)
-	incHandler := IncidentHandler{Store: store, Registry: NewRegistry()}
-	router := getRouter(&incHandler, client, prometheus.NewRegistry())
-	go incHandler.Registry.run()
-	defer close(incHandler.Registry.done)
-	if instrumented, ok := store.(*InstrumentedStore); ok {
-		if ms, ok := instrumented.s.(*MongoStore); ok {
-			ms.DropAll(context.Background())
-		}
-	}
-
-	srv := httptest.NewServer(router)
-	defer srv.Close()
-
-	_, err := http.Post(
-		srv.URL+"/incidents",
-		"application/json",
-		strings.NewReader(`{"title": "order-service request drop", "service": "order-service", "severity": "SEV1", "opened_by": "Anh Nguyen"}`))
+	req := httptest.NewRequest("GET", "/incidents", nil)
+	appRes, err := handler.ListIncidents(req)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("expected no error, get %v", err.Error())
 	}
+	if appRes.Status != http.StatusOK {
+		t.Fatalf("status code expected %v, get %v", http.StatusOK, appRes.Status)
+	}
+
+	// Evaluate
+	response := appRes.Body.([]Incident)
+	if len(response) != 4 {
+		t.Fatalf("len expect %v, get %v", 4, len(response))
+	}
+}
+
+// init a server with an incident available
+func newTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	promRegistry := prometheus.NewRegistry()
+	httpMetrics := NewHttpMetrics(promRegistry)
+	registryMetric := NewRegistryMetric(promRegistry)
+	incidentStoreMetric := NewIncidentStoreMetric(promRegistry)
+
+	registry := NewRegistry(registryMetric)
+	go registry.run()
+	t.Cleanup(func() { close(registry.done) })
+
+	flagHandler := FlagHandler{store: CreateFlagStore()}
+	memStore := NewMemoryIncidentStore()
+	instrumentedIncidentStore := InstrumentedIncidentStore{
+		inner:   memStore,
+		metrics: incidentStoreMetric,
+	}
+	incHandler := IncidentHandler{
+		IncidentStore: &instrumentedIncidentStore,
+		Registry:      registry,
+		FlagEvaluator: &flagHandler.store,
+	}
+
+	memStore.CreateIncident(context.Background(), validCreateIncidentRequest())
+	router := getRouter(&incHandler, &flagHandler, nil, promRegistry, httpMetrics)
+	return httptest.NewServer(router)
+}
+
+func TestAddEntry(t *testing.T) {
+	srv := newTestServer(t)
+	defer srv.Close()
 
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/incidents/INC-1/ws"
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("expected no error, get error %v", err.Error())
 	}
 	defer conn.Close()
 
-	t.Run("Websocket Normal addEntry ", func(t *testing.T) {
-		_, err := http.Post(
-			srv.URL+"/incidents/INC-1/entries",
-			"application/json",
-			strings.NewReader(`{"author":"Anh Nguyen","type":"observation","text":"Connection pool exhaustion. Pool at 100/100."}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			t.Fatal(err)
-		}
+	entry := TimelineEntry{
+		Author: "tom",
+		Type:   OBSERVATION,
+		Text:   "looking into A",
+	}
+	bodyRaw, _ := json.Marshal(entry)
 
-		var got map[string]any
-		json.Unmarshal(msg, &got)
+	// HTTP Respsone
+	resp, err := http.Post(srv.URL+"/incidents/INC-1/entries", "application/json", bytes.NewReader(bodyRaw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("status code expected %v, got %v", http.StatusCreated, resp.StatusCode)
+	}
+	var resEntry1 TimelineEntry
+	json.NewDecoder(resp.Body).Decode(&resEntry1)
 
-		if got["type"] != "new_entry" {
-			t.Errorf("type: got %s", got["type"])
-		}
-		if got["incident_id"] != "INC-1" {
-			t.Errorf("incident_id: got %s", got["incident_id"])
-		}
+	if resEntry1.ID != "TLE-1" {
+		t.Fatalf("entry ID expected %v, got %v", "TLE-1", resEntry1.ID)
+	}
+	if resEntry1.Type != OBSERVATION {
+		t.Fatalf("entry type expected %v, got %v", OBSERVATION, resEntry1.Type)
+	}
 
-		entry := got["entry"].(map[string]interface{})
-		if entry["author"] != "Anh Nguyen" {
-			t.Errorf("author: got %s", entry["author"])
-		}
-		if entry["type"] != "observation" {
-			t.Errorf("type: got %s", entry["type"])
-		}
-	})
-	t.Run("Websocket UpdateIncident ", func(t *testing.T) {
-		req, err := http.NewRequest("PATCH",
-			srv.URL+"/incidents/INC-1",
-			strings.NewReader(`{"status":"resolved"}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.Header.Set("Content-Type", "application/json")
+	// Websocket Response
+	_, msgRaw, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("Expected no error, get %v", err)
+	}
+	var wsMsg map[string]any
+	json.Unmarshal(msgRaw, &wsMsg)
+	if wsMsg["type"] != "new_entry" {
+		t.Fatalf("expected type %v, get %v", "new_entry", wsMsg["type"])
+	}
+	if wsMsg["incident_id"] != "INC-1" {
+		t.Fatalf("expected Incident ID %v, get %v", "INC-1", wsMsg["incident_id"])
+	}
 
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
+	entryRaw, err := json.Marshal(wsMsg["entry"])
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err.Error())
+	}
 
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			t.Fatal(err)
-		}
+	var respEntry2 map[string]string
+	json.Unmarshal(entryRaw, &respEntry2)
 
-		if string(msg) != `{"type":"incident_updated","incident_id":"INC-1","field":"status","old_value":"triggered","new_value":"resolved"}` {
-			t.Errorf("wrong msg")
-		}
+	if respEntry2["author"] != "tom" {
+		t.Fatalf("author expected %v, get %v", "tom", respEntry2["author"])
+	}
+	if respEntry2["type"] != OBSERVATION {
+		t.Fatalf("type expected %v, get %v", OBSERVATION, respEntry2["type"])
+	}
+}
 
-	})
+func TestUpdateIncident(t *testing.T) {
+	srv := newTestServer(t)
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/incidents/INC-1/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("expected no error, get error %v", err.Error())
+	}
+	defer conn.Close()
+
+	incidentUpdate := IncidentUpdate{
+		Status:   new(RESOLVED),
+		Severity: new("SEV2"),
+	}
+	bodyRaw, _ := json.Marshal(incidentUpdate)
+
+	// HTTP Respsone
+	req, err := http.NewRequest(http.MethodPatch, srv.URL+"/incidents/INC-1", bytes.NewReader(bodyRaw))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status code expected %v, got %v", http.StatusNoContent, resp.StatusCode)
+	}
+
+	// Websocket Response
+	_, msgRaw, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("Expected no error, get %v", err)
+	}
+	var wsMsg map[string]any
+	json.Unmarshal(msgRaw, &wsMsg)
+	if wsMsg["type"] != "incident_updated" {
+		t.Fatalf("expected type %v, get %v", "incident_updated", wsMsg["type"])
+	}
+
+	incidentRaw, err := json.Marshal(wsMsg["incident"])
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err.Error())
+	}
+
+	var resIncident map[string]string
+	json.Unmarshal(incidentRaw, &resIncident)
+
+	if resIncident["id"] != "INC-1" {
+		t.Fatalf("expected Incident ID %v, get %v", "INC-1", wsMsg["incident_id"])
+	}
+	if resIncident["status"] != RESOLVED {
+		t.Fatalf("author expected %v, get %v", RESOLVED, resIncident["status"])
+	}
+	if resIncident["severity"] != "SEV2" {
+		t.Fatalf("type expected %v, get %v", "SEV2", resIncident["severity"])
+	}
+}
+
+func TestGetHandoffBrief(t *testing.T) {
+	store := NewMemoryIncidentStore()
+	validIncRequest := validCreateIncidentRequest()
+	store.CreateIncident(context.Background(), validIncRequest)
+
+	handler := IncidentHandler{IncidentStore: store}
+	req := httptest.NewRequest("GET", "/incidents/INC-1/handoff?user_id=tom", nil)
+	req.SetPathValue("id", "INC-1")
+
+	res, err := handler.GetHandoffBrief(req)
+	if err != nil {
+		t.Fatalf("expected no error, get %v", err.Error())
+	}
+	if res.Status != http.StatusOK {
+		t.Fatalf("expected status %v, get %v", http.StatusOK, res.Status)
+	}
+
+	bodyRaw, err := json.Marshal(res.Body)
+	if err != nil {
+		t.Fatalf("expected not nil, get %v", err.Error())
+	}
+	var body HandoffBrief
+	err = json.Unmarshal(bodyRaw, &body)
+	if err != nil {
+		t.Fatalf("expected not nil, get %v", err.Error())
+	}
 }
