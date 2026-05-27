@@ -54,8 +54,6 @@ This is not a toy project. It exercises every skill a full-stack engineer needs:
 3. Every challenge has a **Checklist** or **Expected Output** — don't move on until yours matches.
 4. When you are stuck for more than 1 hour on the same problem, don't hesitate to read the **Sources** section. If still stuck after another hour, search for the specific error message. Ask for help. Do not skip.
 
-[`fullstack-engineering-curriculum.md`](./fullstack-engineering-curriculum.md)
-
 ---
 
 # Full Curriculum Summary
