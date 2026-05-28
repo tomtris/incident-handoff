@@ -40,8 +40,8 @@ func getRouter(incHandler *IncidentHandler, flagHandler *FlagHandler, authHandle
 
 	root := http.NewServeMux()
 	authMW := AuthMiddleware(authHandler.Secret)
-	root.Handle("/api/", http.StripPrefix("/api/", authMW(protected)))
-	root.Handle("/admin/", http.StripPrefix("/admin/", authMW(admin)))
+	root.Handle("/api/", http.StripPrefix("/api", authMW(protected)))
+	root.Handle("/admin/", http.StripPrefix("/admin", authMW(admin)))
 	root.Handle("/", public)
 
 	router := RequestIDMiddleware(ObservabilityMiddleware(httpMetrics)(CORSMiddleware(TimeoutMiddleware(root))))

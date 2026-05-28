@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -18,6 +19,7 @@ type Config struct {
 }
 
 func loadConfig() Config {
+	godotenv.Load()
 	config := Config{
 		Port:             envOr("HANDOFF_PORT", "8080"),
 		LogLevel:         envOr("HANDOFF_LOG_LEVEL", "info"),

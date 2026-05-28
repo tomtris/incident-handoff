@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -35,7 +34,6 @@ func NewIncidentStore(conf Config) (*mongo.Client, IncidentStore) {
 }
 
 func main() {
-	godotenv.Load()
 	// init metrics
 	promRegistry := prometheus.NewRegistry()
 	httpMetrics := NewHttpMetrics(promRegistry)

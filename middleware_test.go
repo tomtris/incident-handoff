@@ -209,3 +209,70 @@ func TestObservabilityMiddleware(t *testing.T) {
 		}
 	})
 }
+
+func TestAuthMiddleware(t *testing.T) {
+	testRequestID := "Test-Request-ID"
+	secret := "jwt-testing"
+	now := time.Now()
+	ttl := time.Duration(15 * time.Minute)
+	user := User{
+		ID:       "123",
+		Username: "anh",
+		Role:     "engineer",
+	}
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	t.Run("no Bearer in Authentication Header", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/", nil)
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, requestIDKey, testRequestID)
+		AuthMiddleware([]byte(secret))(inner).ServeHTTP(rec, req.WithContext(ctx))
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expect error code %v, get %v", http.StatusUnauthorized, rec.Code)
+		}
+		var res map[string]map[string]string
+		json.NewDecoder(rec.Body).Decode(&res)
+		if res["error"]["code"] != "NO_AUTHENTICATION_HEADER" {
+			t.Fatalf("expect error with code %v, get %v", "NO_AUTHENTICATION_HEADER", res["error"]["code"])
+		}
+	})
+
+	t.Run("Bearer in Authentication Header", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/", nil)
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, requestIDKey, testRequestID)
+		tokenSigned, _ := IssueToken(user, []byte(secret), ttl, now)
+		req.Header.Set("Authorization", "Bearer "+tokenSigned)
+		AuthMiddleware([]byte(secret))(inner).ServeHTTP(rec, req.WithContext(ctx))
+
+		if rec.Code != http.StatusOK {
+			var res map[string]map[string]string
+			json.NewDecoder(rec.Body).Decode(&res)
+			t.Errorf("expect error code %v, get %v, reason $%v$", http.StatusOK, rec.Code, res["error"]["code"])
+		}
+	})
+	t.Run("fake JWT in Header", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/", nil)
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, requestIDKey, testRequestID)
+		tokenSigned := "fake-jwts"
+		req.Header.Set("Authorization", "Bearer "+tokenSigned)
+		AuthMiddleware([]byte(secret))(inner).ServeHTTP(rec, req.WithContext(ctx))
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expect error code %v, get %v", http.StatusUnauthorized, rec.Code)
+		}
+		var res map[string]map[string]string
+		json.NewDecoder(rec.Body).Decode(&res)
+		if res["error"]["code"] != "BAD_JWT_TOKEN" {
+			t.Fatalf("expect error with code %v, get %v", "BAD_JWT_TOKEN", res["error"]["code"])
+		}
+	})
+
+}
