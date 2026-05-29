@@ -199,8 +199,8 @@ func (h *IncidentHandler) GetHandoffBrief(r *http.Request) (*AppResponse, *AppEr
 		return nil, InternalServerError(err)
 	}
 
-	userID := r.URL.Query().Get("user_id")
-	body := buildHandoffBrief(inc, h.FlagEvaluator, userID)
+	user := r.Context().Value(userContextKey).(UserContext)
+	body := buildHandoffBrief(inc, h.FlagEvaluator, user.ID)
 	return newAppResponse(http.StatusOK, body), nil
 }
 
