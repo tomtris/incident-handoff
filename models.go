@@ -24,7 +24,6 @@ type CreateIncidentRequest struct {
 	Title    string `json:"title" bson:"title"`
 	Service  string `json:"service" bson:"service"`
 	Severity string `json:"severity" bson:"severity"` // SEV1, SEV2, SEV3
-	OpenedBy string `json:"opened_by" bson:"opened_by"`
 }
 
 func (c *CreateIncidentRequest) Validate() error {
@@ -41,11 +40,6 @@ func (c *CreateIncidentRequest) Validate() error {
 	c.Severity = strings.TrimSpace(c.Severity)
 	if IncidentSeverity[c.Severity] == false {
 		return ErrInvalidSeverity
-	}
-
-	c.OpenedBy = strings.TrimSpace(c.OpenedBy)
-	if c.OpenedBy == "" {
-		return ErrOpenedBy
 	}
 	return nil
 }

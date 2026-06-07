@@ -78,7 +78,7 @@ func TestMarshalIncidentUpdateEvent(t *testing.T) {
 func TestGetIncidentOK(t *testing.T) {
 	store := NewMemoryIncidentStore()
 	validIncRequest := validCreateIncidentRequest()
-	store.CreateIncident(context.Background(), "", validIncRequest)
+	store.CreateIncident(context.Background(), "", "", validIncRequest)
 
 	handler := IncidentHandler{IncidentStore: store}
 	req := httptest.NewRequest("GET", "/incident/INC-1", nil)
@@ -105,9 +105,6 @@ func TestGetIncidentOK(t *testing.T) {
 	if inc.Severity != validIncRequest.Severity {
 		t.Fatalf("expected Severity %v, get %v", validIncRequest.Severity, inc.Severity)
 	}
-	if inc.OpenedBy != validIncRequest.OpenedBy {
-		t.Fatalf("expected OpenedBy %v, get %v", validIncRequest.OpenedBy, inc.OpenedBy)
-	}
 	if inc.OnCall != "" {
 		t.Fatalf("expected OnCall %v, get %v", "", inc.OnCall)
 	}
@@ -130,21 +127,23 @@ func TestGetIncident404(t *testing.T) {
 }
 
 func TestCreateIncident(t *testing.T) {
-
 	incCreateRequest := validCreateIncidentRequest()
 	store := NewMemoryIncidentStore()
-	store.CreateIncident(context.Background(), "", incCreateRequest)
+	store.CreateIncident(context.Background(), "", "", incCreateRequest)
 	onCallHandler := &OnCallHandler{Store: NewOnCallStore()}
 	handler := IncidentHandler{
 		IncidentStore: store,
 		CurrentOnCall: onCallHandler.Store,
 	}
-
-	// fmt.Println(onCallHandler.Store.(*InMemoryOnCallStore).OnCallEntries)
-
 	bodyRaw, _ := json.Marshal(incCreateRequest)
+
 	req := httptest.NewRequest("POST", "/incident", bytes.NewReader(bodyRaw))
-	appRes, err := handler.CreateIncident(req)
+	ctx := context.WithValue(req.Context(), userContextKey, UserContext{
+		ID:       "Usr-1",
+		Username: "username_admin",
+		Role:     "admin",
+	})
+	appRes, err := handler.CreateIncident(req.WithContext(ctx))
 
 	if err != nil {
 		t.Fatalf("expected no error, get %v", err.Error())
@@ -166,19 +165,22 @@ func TestCreateIncident(t *testing.T) {
 	if response.Service != incCreateRequest.Service {
 		t.Fatalf("Service expected %v, got %v", incCreateRequest.Service, response.Service)
 	}
+	if response.OpenedBy != "username_admin" {
+		t.Fatalf("OpenedBy expected %v, got %v", "username_admin", response.OpenedBy)
+	}
 }
 
 func TestListIncident(t *testing.T) {
 
 	store := NewMemoryIncidentStore()
 	incCreateRequest := validCreateIncidentRequest()
-	store.CreateIncident(context.Background(), "", incCreateRequest)
+	store.CreateIncident(context.Background(), "", "", incCreateRequest)
 	incCreateRequest.Title = "123"
-	store.CreateIncident(context.Background(), "", incCreateRequest)
+	store.CreateIncident(context.Background(), "", "", incCreateRequest)
 	incCreateRequest.Service = "no_services"
-	store.CreateIncident(context.Background(), "", incCreateRequest)
+	store.CreateIncident(context.Background(), "", "", incCreateRequest)
 	incCreateRequest.Severity = "SEV3"
-	store.CreateIncident(context.Background(), "", incCreateRequest)
+	store.CreateIncident(context.Background(), "", "", incCreateRequest)
 
 	handler := IncidentHandler{IncidentStore: store}
 
@@ -255,7 +257,7 @@ func newTestServer(t *testing.T) (*httptest.Server, string, string) {
 	engineerTokenSigned, _ := IssueToken(seedUsers[0], []byte(jwt_secret), ttl, time.Now())
 	adminTokenSigned, _ := IssueToken(seedUsers[2], []byte(jwt_secret), ttl, time.Now())
 
-	memStore.CreateIncident(context.Background(), "", validCreateIncidentRequest())
+	memStore.CreateIncident(context.Background(), "", "", validCreateIncidentRequest())
 
 	router := getRouter(&incHandler, &flagHandler, authHandler, onCallHandler, nil, promRegistry, httpMetrics)
 	return httptest.NewServer(router), engineerTokenSigned, adminTokenSigned
@@ -433,7 +435,7 @@ func TestUpdateIncident(t *testing.T) {
 func TestGetHandoffBriefAdmin(t *testing.T) {
 	store := NewMemoryIncidentStore()
 	validIncRequest := validCreateIncidentRequest()
-	store.CreateIncident(context.Background(), "", validIncRequest)
+	store.CreateIncident(context.Background(), "", "", validIncRequest)
 
 	handler := IncidentHandler{IncidentStore: store}
 	req := httptest.NewRequest("GET", "/incidents/INC-1/handoff?user_id=tom", nil)
@@ -466,7 +468,7 @@ func TestGetHandoffBriefAdmin(t *testing.T) {
 func TestGetHandoffBriefEngineer(t *testing.T) {
 	store := NewMemoryIncidentStore()
 	validIncRequest := validCreateIncidentRequest()
-	store.CreateIncident(context.Background(), "", validIncRequest)
+	store.CreateIncident(context.Background(), "", "", validIncRequest)
 
 	handler := IncidentHandler{IncidentStore: store}
 	req := httptest.NewRequest("GET", "/incidents/INC-1/handoff", nil)

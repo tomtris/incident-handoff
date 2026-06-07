@@ -68,7 +68,7 @@ func (m *MongoIncidentStore) nextID(ctx context.Context, name string, prefix str
 	return prefix + strconv.Itoa(result.Seq), nil
 }
 
-func (m *MongoIncidentStore) CreateIncident(ctx context.Context, onCall string, incReq CreateIncidentRequest) (Incident, error) {
+func (m *MongoIncidentStore) CreateIncident(ctx context.Context, openedBy string, onCall string, incReq CreateIncidentRequest) (Incident, error) {
 	id, err := m.nextID(ctx, "incident", incidentIDPrefix)
 	if err != nil {
 		return Incident{}, errors.New("Failed to get next incident Id: " + err.Error())
@@ -78,7 +78,7 @@ func (m *MongoIncidentStore) CreateIncident(ctx context.Context, onCall string, 
 		Title:     incReq.Title,
 		Service:   incReq.Service,
 		Severity:  incReq.Severity,
-		OpenedBy:  incReq.OpenedBy,
+		OpenedBy:  openedBy,
 		OnCall:    onCall,
 		Status:    TRIGGERED,
 		CreatedAt: time.Now(),

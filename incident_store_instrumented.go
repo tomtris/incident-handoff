@@ -23,9 +23,9 @@ func (s *InstrumentedIncidentStore) MetricInit() {
 	}
 }
 
-func (s *InstrumentedIncidentStore) CreateIncident(ctx context.Context, onCall string, incReq CreateIncidentRequest) (Incident, error) {
+func (s *InstrumentedIncidentStore) CreateIncident(ctx context.Context, openedBy string, onCall string, incReq CreateIncidentRequest) (Incident, error) {
 	timer := prometheus.NewTimer(s.metrics.DbQueryDurationSeconds.WithLabelValues("create_incident"))
-	inc, err := s.inner.CreateIncident(ctx, onCall, incReq)
+	inc, err := s.inner.CreateIncident(ctx, openedBy, onCall, incReq)
 	timer.ObserveDuration()
 	if err == nil {
 		s.metrics.IncidentTotal.WithLabelValues(inc.Status).Inc()
