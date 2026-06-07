@@ -7,8 +7,20 @@
         <link rel="stylesheet" href="incidents.css">
     </head>
     <body>
-        <h1>Incidents</h1>
-        <ul>
+        <h1 id="title">Incidents</h1>
+        <fieldset>
+            <legend>Filter by status</legend>
+            <label>
+                <input type="radio" name="status" value="all" checked> All
+            </label>
+            <label>
+                <input type="radio" name="status" value="open"> Open
+            </label>
+            <label>
+                <input type="radio" name="status" value="resolved"> Resolved
+            </label>
+        </fieldset>
+        <ul id="incident-list">
             <li>
                 <span class="SV3">SEV3</span>
                 <h3>Payment</h3>
@@ -29,5 +41,40 @@
             </li>
         </ul>
     </body>
-    <script src="app.js"></script>
+    <script>
+        const incidents = [
+            { id: 1, severity: "SEV1", title: "Service", createdAt: "2026-06-02 17:20", resolvedAt: null },
+            { id: 2, severity: "SEV3", title: "Service", createdAt: "2026-06-01 17:20", resolvedAt: null },
+            { id: 3, severity: "SEV2", title: "Service", createdAt: "2026-06-02 10:30", resolvedAt: "2026-06-02 11:00" },
+            { id: 4, severity: "SEV1", title: "Service", createdAt: "2026-06-03 08:00", resolvedAt: null },
+            { id: 1, severity: "SEV1", title: "Service", createdAt: "2026-06-01 17:20", resolvedAt: null },
+        ];
+
+        const filteredOpen = (incidents) => incidents.filter(inc => inc.resolvedAt === null)
+        const filteredResolve = (incident) => incidents.filter(inc => inc.resolvedAt !== null)
+        const radios = document.querySelectorAll('input[name="status"]')
+        const ul = document.querySelector("#incident-list")
+        function render() {
+            ul.innerHTML = ""
+            
+            let toRender = incidents
+            const selected = document.querySelector('input[name="status"]:checked').value;
+            if (selected === "open") {
+                toRender = filteredOpen(incidents)
+            } else if (selected === "resolved") {
+                toRender = filteredResolve(incidents)
+            }
+
+            toRender.forEach(inc => {
+                const li = document.createElement("li")
+                li.innerHTML = `<span class=${inc.severity}>${inc.severity}</span>
+                <h3>${inc.title}</h3>
+                <p>${inc.createdAt}</p>
+                <p>Status: ${inc.resolvedAt === null ? "Open" : "Resolved"}</p>`
+                ul.appendChild(li)
+            })
+        }
+        radios.forEach(radio => radio.addEventListener("change", render));
+        render()
+    </script>
 </html>
