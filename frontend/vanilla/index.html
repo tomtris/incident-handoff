@@ -12,8 +12,11 @@
                 const res = await fetch("/api/auth/me", {
                     credentials: "include"
                 });
-                
-                console.log(await res.json())
+                if (res.ok) {
+                    window.location.href = "/incident-list.html"
+                } else {
+                    window.location.href = "/login.html"
+                }
             } catch {
                 alert("Unexpected Error");
             }

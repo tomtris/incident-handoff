@@ -36,12 +36,13 @@
                     const message = data.error.message;
                     throw new Error(`${errorCode}: ${message}`);
                 }
-                console.log(res)
+                window.location.href = "/incident-list.html"
             } catch (err) {
                 errorDiv.textContent = err.message;
                 errorDiv.style.display = "block";
             }
         }
+        
         const form = document.getElementById("login-form");
         form.addEventListener("submit", (event) => {
             event.preventDefault();

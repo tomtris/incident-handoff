@@ -8,6 +8,22 @@
     </head>
     <body>
         <h1 id="title">Incidents</h1>
+        <form id="add-incident-form">
+            <legend>Create Incident</legend>
+            <label>
+                Title
+                <input id="title" type="text" required>
+            </label>
+            <label>
+                Service
+                <input id="service" type="text" required>
+            </label>
+            <label>
+                Severity
+                <input id="severity" type="text" required>
+            </label>
+            <button type="submit">Create Incident</button>
+        </form>
         <fieldset>
             <legend>Filter by status</legend>
             <label>
@@ -27,19 +43,14 @@
     <script>
         incidents = []
         async function loadIncidents() {
-            const res1 = await fetch("/auth/me", {
-                    credentials: "include"
-                });
-            console.log(await res1.json())
             const res = await fetch("/api/incidents", {
                 credentials: "include"
             })
             if (!res.ok) {
-                throw new Error(res.error)
+                alert(res.error)
             }
             console.log(await res.json())
         }
-        loadIncidents()
 
         const filteredOpen = (incidents) => incidents.filter(inc => inc.resolvedAt === null)
         const filteredResolve = (incident) => incidents.filter(inc => inc.resolvedAt !== null)
@@ -66,15 +77,30 @@
             })
         }
         async function logout() {
-            await fetch("/api/logout", {
+            await fetch("/api/auth/logout", {
                 method: "POST",
                 credentials: "include"
             })
-            window.location.href = "/"
+            window.location.href = "/login.html"
         }
 
-        radios.forEach(radio => radio.addEventListener("change", render));
+        async function createIncident() {
+            res = await fetch("/api/incidents", {
+                method: "POST",
+                credentials: "include"
+            })
+            console.log(await res.json())
+        }
+
         
+        radios.forEach(radio => radio.addEventListener("change", render));
+        const form = document.getElementById("add-incident-form");
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            createIncident()
+        })
+        
+        loadIncidents()
         render()
     </script>
 </html>

@@ -28,7 +28,7 @@ func getRouter(
 	protected.HandleFunc("PATCH /incidents/{id}", ResponseMiddleware(incHandler.UpdateIncident))
 	// auth
 	protected.HandleFunc("GET /auth/me", ResponseMiddleware(authHandler.WhoAmI))
-	protected.HandleFunc("GET /auth/logout", authHandler.LogoutHandler)
+	protected.HandleFunc(" /auth/logout", authHandler.LogoutHandler)
 	// WebsocketHandler
 	protected.HandleFunc("GET /incidents/{id}/ws", incHandler.HandleIncidentWebSocket)
 
