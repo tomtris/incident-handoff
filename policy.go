@@ -13,11 +13,11 @@ const (
 	ActionUpdateIncident Action = "incidents:update"
 )
 
-var ErrForbidden = errors.New("forbidden")
+var ErrForbidden = errors.New("For Admin or Oncall Only")
 
 func AuthorizeIncidentAction(u UserContext, inc Incident, action Action) error {
 	switch action {
-	case ActionUpdateIncident, ActionAddEntry:
+	case ActionUpdateIncident:
 		if u.Role == "admin" || u.Username == inc.OnCall {
 			return nil
 		}

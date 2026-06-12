@@ -53,10 +53,6 @@ type TimelineEntry struct {
 }
 
 func (c *TimelineEntry) Validate() error {
-	c.Author = strings.TrimSpace(c.Author)
-	if c.Author == "" {
-		return ErrNoAuthor
-	}
 	c.Type = strings.TrimSpace(c.Type)
 	if validEntryTypes[c.Type] == false {
 		return ErrBadEntryType

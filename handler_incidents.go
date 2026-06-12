@@ -113,6 +113,7 @@ func (h *IncidentHandler) AddEntry(r *http.Request) (*AppResponse, *AppError) {
 		return nil, BadRequest(err)
 	}
 
+	timelineEntry.Author = user.Username
 	newEntry, err := h.IncidentStore.AddEntry(r.Context(), inc.ID, inc.Version, timelineEntry)
 
 	if err != nil {

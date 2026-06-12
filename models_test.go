@@ -77,13 +77,13 @@ func TestTimelineEntry_Validate(t *testing.T) {
 		}
 	})
 
-	t.Run("empty author", func(t *testing.T) {
-		e := valid()
-		e.Author = "   "
-		if !errors.Is(e.Validate(), ErrNoAuthor) {
-			t.Error("expected ErrNoAuthor")
-		}
-	})
+	// t.Run("empty author", func(t *testing.T) {
+	// 	e := valid()
+	// 	e.Author = "   "
+	// 	if !errors.Is(e.Validate(), ErrNoAuthor) {
+	// 		t.Error("expected ErrNoAuthor")
+	// 	}
+	// })
 
 	t.Run("invalid type", func(t *testing.T) {
 		e := valid()

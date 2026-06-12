@@ -279,37 +279,25 @@ func TestAddEntry(t *testing.T) {
 	defer conn.Close()
 
 	entry := TimelineEntry{
-		Author: "tom",
-		Type:   OBSERVATION,
-		Text:   "looking into A",
+		Type: OBSERVATION,
+		Text: "looking into A",
 	}
 	bodyRaw, _ := json.Marshal(entry)
 
 	// HTTP Respsone
-	t.Run("Test forbidden request with engineer role", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, srv.URL+"/api/incidents/INC-1/entries", bytes.NewReader(bodyRaw))
-		req.Header.Set("Content-Type", "application/json")
-		req.AddCookie(&http.Cookie{Name: "access_token", Value: engineerTokenSigned})
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusForbidden {
-			t.Fatalf("status code expected %v, got %v", http.StatusForbidden, resp.StatusCode)
-		}
-	})
-
 	t.Run("Test normal request with admin role", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, srv.URL+"/api/incidents/INC-1/entries", bytes.NewReader(bodyRaw))
 		req.Header.Set("Content-Type", "application/json")
 		req.AddCookie(&http.Cookie{Name: "access_token", Value: adminTokenSigned})
 		resp, err := http.DefaultClient.Do(req)
+
 		if err != nil {
 			t.Fatal(err)
 		}
 		if resp.StatusCode != http.StatusCreated {
 			t.Fatalf("status code expected %v, got %v", http.StatusCreated, resp.StatusCode)
 		}
+
 		var resEntry1 TimelineEntry
 		json.NewDecoder(resp.Body).Decode(&resEntry1)
 
@@ -342,11 +330,24 @@ func TestAddEntry(t *testing.T) {
 		var respEntry2 map[string]string
 		json.Unmarshal(entryRaw, &respEntry2)
 
-		if respEntry2["author"] != "tom" {
-			t.Fatalf("author expected %v, get %v", "tom", respEntry2["author"])
+		if respEntry2["author"] != "admin" {
+			t.Fatalf("author expected %v, get %v", "admin", respEntry2["author"])
 		}
 		if respEntry2["type"] != OBSERVATION {
 			t.Fatalf("type expected %v, get %v", OBSERVATION, respEntry2["type"])
+		}
+	})
+
+	t.Run("Test normal request with engineer role", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, srv.URL+"/api/incidents/INC-1/entries", bytes.NewReader(bodyRaw))
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(&http.Cookie{Name: "access_token", Value: engineerTokenSigned})
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("status code expected %v, got %v", http.StatusCreated, resp.StatusCode)
 		}
 	})
 
