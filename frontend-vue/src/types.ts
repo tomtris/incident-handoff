@@ -44,3 +44,9 @@ export interface CreateIncidentRequest {
 	service:  string
 	severity: Severity
 }
+
+export interface UserContext {
+	id:       string
+	username: string
+	role:     string
+}

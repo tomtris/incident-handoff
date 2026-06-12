@@ -2,11 +2,25 @@ package main
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
+
+func spaHandler(dir string) http.HandlerFunc {
+	fs := http.FileServer(http.Dir(dir))
+	return func(w http.ResponseWriter, r *http.Request) {
+		p := filepath.Join(dir, filepath.Clean(r.URL.Path))
+		if info, err := os.Stat(p); err == nil && !info.IsDir() {
+			fs.ServeHTTP(w, r)
+			return
+		}
+		http.ServeFile(w, r, filepath.Join(dir, "index.html")) // client route
+	}
+}
 
 func getRouter(
 	incHandler *IncidentHandler,
@@ -47,11 +61,9 @@ func getRouter(
 	public.Handle("GET /metrics", promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{Registry: promRegistry}))
 	public.HandleFunc("GET /healthz", healthCheck)
 	public.HandleFunc("GET /readyz", readyCheck(mongoClient))
-	public.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./frontend/vanilla/login.html")
-	})
 	public.HandleFunc("POST /login", authHandler.LoginHandler)
-	public.Handle("GET /", http.FileServer(http.Dir("./frontend/public")))
+	// public.Handle("GET /", http.FileServer(http.Dir("./frontend/public")))
+	public.Handle("GET /", spaHandler("./frontend-vue/dist"))
 
 	root := http.NewServeMux()
 	authMW := AuthMiddleware(authHandler.Secret)

@@ -1,4 +1,4 @@
-import type { Incident, CreateIncidentRequest, Severity } from "./types.js";
+import type { Incident, CreateIncidentRequest, Severity, TimelineEntry, UserContext } from "./types.js";
 
 interface ApiError {
     error: {
@@ -58,4 +58,20 @@ export async function createIncident(input:CreateIncidentRequest) : Promise<Inci
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
     })
+}
+
+export async function addEntry(incidentId: string, type: string, text:string) : Promise<TimelineEntry> {
+    return await request<TimelineEntry>("/api/incidents/"+incidentId+"/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({type, text}),
+    })
+}
+
+export async function getIncident(id : string) : Promise<Incident> {
+    return await request<Incident>("/api/incidents/"+id, undefined)
+}
+
+export async function whoAmI() : Promise<UserContext> {
+    return await request<UserContext>("/api/auth/me", undefined)
 }

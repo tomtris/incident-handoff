@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '@/api.ts'
 
+const authedRoutes = {
+
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -15,6 +19,11 @@ const router = createRouter({
       component: () => {},
     },
     {
+      path: '/incident-detail/:id',
+      name: 'incident-detail',
+      component: () => import('@/views/IncidentDetailView.vue'),
+    },
+    {
       path: '/login',
       name: 'login',
       // route level code-splitting
@@ -23,8 +32,8 @@ const router = createRouter({
       component: () => import('@/views/LoginView.vue'),
     },
     {
-      path: '/incident-list',
-      name: 'incident-list',
+      path: '/incidents',
+      name: 'incidents',
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
@@ -33,11 +42,10 @@ const router = createRouter({
   ],
 })
 
-
 router.beforeEach(async (to) => {
   if (to.name == "entry") {
     const ok = await isAuthenticated()
-    return ok == true ? "incident-list" : "login"
+    return ok == true ? "incidents" : "login"
   }
 })
 

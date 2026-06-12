@@ -3,7 +3,9 @@ import { ref } from 'vue';
 defineProps({
     error: {type:String, default: ''}
 })
-const emit = defineEmits(['submit'])
+const emit = defineEmits<{
+    submit: [payload: {username: string, password: string}]
+}>()
 const username = ref('')
 const password = ref('')
 function onSubmit() {
@@ -16,7 +18,7 @@ function onSubmit() {
         <p v-if="error" class="error" role="alert">{{ error }}</p>
         <label>
             Username
-            <input v-model="username" type="test" required>
+            <input v-model="username" type="text" required>
         </label>
         <label>
             Password

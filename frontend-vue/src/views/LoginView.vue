@@ -4,11 +4,11 @@ import LoginForm from '../components/LoginForm.vue'
 import { login } from '@/api.ts';
 
 const error = ref('')
-async function handleLogin({username, password} : {username:string; password:string})  {
+async function handleLogin(payload : {username:string; password:string})  {
     error.value = ''
     try {
-      await login(username, password)
-      window.location.href = "/incident-list"
+      await login(payload.username, payload.password)
+      window.location.href = "/incidents"
     } catch (e) {
       error.value = (e as Error).message ?? 'Authentication failed'
     }

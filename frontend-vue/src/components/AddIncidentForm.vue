@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import type { Severity } from '@/types';
 import { ref } from 'vue';
 
 const props = defineProps<{error: string}>()
-const emit = defineEmits(['submit'])
+const emit = defineEmits<{
+    submit: [payload : {title: string, service: string, severity: string}]
+}>()
 
 const title = ref('')
 const service = ref('')
