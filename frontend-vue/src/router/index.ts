@@ -29,6 +29,11 @@ const router = createRouter({
       component: () => import('@/views/IncidentsView.vue'),
     },
     {
+      path: '/incident/new',
+      name: 'incident-new',
+      component: () => import('@/views/IncidentCreateView.vue'),
+    },
+    {
       path: '/sandbox',
       name: 'sandbox',
       component: () => import('@/views/SandboxView.vue'),

@@ -52,6 +52,9 @@ body {
   line-height: 1.5;
 }
 
+.spacer {
+  flex: 1
+}
 /* ---- Form ---- */
 .field {
   display: flex;
@@ -83,6 +86,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: 5px;
   cursor: pointer;
+  color: var(--color-text)
   font-size: 14px;
   font-weight: 600;
   padding: 12px;
@@ -92,6 +96,22 @@ body {
 .btn-primary {
   background-color: var(--color-accent);
   border-color: var(--color-accent)
+}
+
+.btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent)
+}
+
+.btn-primary {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent)
+}
+
+.btn-primary:hover {
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  color:var(--color-accent);
 }
 
 .btn-block {

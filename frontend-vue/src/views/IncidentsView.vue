@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { createIncident, isAuthenticated, loadIncidents, logout } from '@/api';
 import AddIncidentForm from '@/components/AddIncidentForm.vue';
+import AppHeader from '@/components/AppHeader.vue';
 import IncidentList from '@/components/IncidentList.vue';
 import type { Severity, CreateIncidentRequest, Incident } from '@/types';
 import { ref } from 'vue';
@@ -51,7 +52,7 @@ init()
 
 <template>
   <main>
-    <button type="button" @click="handleLogout">Logout</button>
+    <AppHeader @submit="handleLogout"></AppHeader>
     <AddIncidentForm :error="createIncidentFormError" @submit="handleCreateIncident"/>
     <IncidentList :incidents="incidents"/>
   </main>
