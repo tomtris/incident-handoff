@@ -29,8 +29,8 @@ const router = createRouter({
       component: () => import('@/views/IncidentsView.vue'),
     },
     {
-      path: '/incident/new',
-      name: 'incident-new',
+      path: '/incidents/new',
+      name: 'incidents-new',
       component: () => import('@/views/IncidentCreateView.vue'),
     },
     {

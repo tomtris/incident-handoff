@@ -17,6 +17,7 @@
   --color-text: #c9d1d9;
   --color-text-dim: #8b949e;
   --color-text-bright: #f0f6fc;
+  --color-text-black: #1a1206;
 
   --color-accent: #f0883e;
   --color-accent-hover: #ff9a52;
@@ -52,8 +53,17 @@ body {
   line-height: 1.5;
 }
 
+.page {
+  margin: 0 auto;
+  padding: 30px;
+}
+
 .spacer {
   flex: 1
+}
+
+a {
+  text-decoration: none;
 }
 /* ---- Form ---- */
 .field {
@@ -86,7 +96,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: 5px;
   cursor: pointer;
-  color: var(--color-text)
+  color: var(--color-text);
   font-size: 14px;
   font-weight: 600;
   padding: 12px;
@@ -95,30 +105,51 @@ body {
 
 .btn-primary {
   background-color: var(--color-accent);
-  border-color: var(--color-accent)
+  border-color: var(--color-accent);
+  color: var(--color-text-black);
 }
 
 .btn:hover {
   border-color: var(--color-accent);
-  color: var(--color-accent)
-}
-
-.btn-primary {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent)
+  color: var(--color-accent);
 }
 
 .btn-primary:hover {
   background-color: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
-  color:var(--color-accent);
+  color: var(--color-text-black);
 }
 
 .btn-block {
   width: 100%;
+  color: var(--color-text-black);
 }
 
 .error {
   color: red;
   font-size: 12px;
+}
+
+/* Headings and text */
+
+.page-title {
+  color: var(--color-text-bright);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.eyebrow {
+  color: var(--color-text-dim);
+  font-family: var(--front-mono);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.dim {
+  color: var(--color-text-dim)
 }
