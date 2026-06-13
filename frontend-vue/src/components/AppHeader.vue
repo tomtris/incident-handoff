@@ -4,8 +4,6 @@ const emit = defineEmits<{
     submit: [{}]
 }>()
 function onSubmit() {
-    console.log(777);
-    emit('submit', {})
 }
 </script>
 
@@ -44,7 +42,7 @@ function onSubmit() {
   gap: 24px;
   margin: 0 auto;
   max-width: 1100px;
-  padding: 0 24px;
+  padding: 0 auto;
 }
 
 .brand {

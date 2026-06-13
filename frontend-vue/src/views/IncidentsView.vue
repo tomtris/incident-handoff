@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { createIncident, isAuthenticated, loadIncidents, logout } from '@/api';
 import AppHeader from '@/components/AppHeader.vue';
-import IncidentList from '@/components/IncidentList.vue';
 import IncidentListItem from '@/components/IncidentListItem.vue';
 import type { Severity, CreateIncidentRequest, Incident } from '@/types';
 import { computed, onMounted, ref } from 'vue';
@@ -80,13 +79,14 @@ const filteredIncidents = computed(() => {
 .dash-head {
   align-items: flex-end;
   display: flex;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .filters {
   display: flex;
   gap: 16px;
   list-style: none;
+  margin-bottom: 24px;
 }
 
 .filter {

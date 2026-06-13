@@ -65,9 +65,9 @@ async function handleAddEntry(payload: {type:string, text:string}) {
 </script>
 
 <template>
-    <RouterLink :to="{name: 'incidents'}">Back</RouterLink>
+    <RouterLink :to="{name: 'entry'}">Back</RouterLink>
     
-<div v-if="errIncidentLoadingMsg">
+    <div v-if="errIncidentLoadingMsg">
         <p>Failed to load incident:</p>
         <p>{{ errIncidentLoadingMsg }}</p>
         <p>Please try again</p>

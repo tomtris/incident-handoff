@@ -49,7 +49,7 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (to.name == "entry") {
     const ok = await isAuthenticated()
-    return ok == true ? "incidents" : "log-in"
+    return ok == true ? {name:"incidents"} : {name:"log-in"}
   }
 })
 
