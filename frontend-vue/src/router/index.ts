@@ -19,14 +19,19 @@ const router = createRouter({
       component: () => import('@/views/IncidentDetailView.vue'),
     },
     {
-      path: '/login',
-      name: 'login',
+      path: '/log-in',
+      name: 'log-in',
       component: () => import('@/views/LoginView.vue'),
     },
     {
       path: '/incidents',
       name: 'incidents',
       component: () => import('@/views/IncidentsView.vue'),
+    },
+    {
+      path: '/sandbox',
+      name: 'sandbox',
+      component: () => import('@/views/SandboxView.vue'),
     },
     {
       path: '/:pathMatch(.*)*',
@@ -39,7 +44,7 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (to.name == "entry") {
     const ok = await isAuthenticated()
-    return ok == true ? "incidents" : "login"
+    return ok == true ? "incidents" : "log-in"
   }
 })
 

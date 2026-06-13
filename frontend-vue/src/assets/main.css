@@ -1,35 +1,104 @@
-/* @import './base.css';
+/* ============================================================
+   Handoff — global styles
+   Dark "incident war room" console. Sharp edges, high contrast,
+   monospace for IDs and timestamps.
+   ============================================================ */
 
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+/* ---- Color palette and shared values ---- */
+:root {
+  --color-bg: #0d1117;
+  --color-panel: #161b22;
+  --color-panel-2: #1c2128;
+  --color-input: #0b0f14;
+
+  --color-border: #30363d;
+  --color-border-strong: #444c56;
+
+  --color-text: #c9d1d9;
+  --color-text-dim: #8b949e;
+  --color-text-bright: #f0f6fc;
+
+  --color-accent: #f0883e;
+  --color-accent-hover: #ff9a52;
+
+  --color-sev1: #f85149;
+  --color-sev2: #f0883e;
+  --color-sev3: #d29922;
+
+  --color-ok: #3fb950;
+  --color-danger: #f85149;
+
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --font-sans: "Segoe UI", system-ui, Helvetica, Arial, sans-serif;
 }
 
-a,
-.green {
-  text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
+/* ---- Reset ---- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
+html,
+body {
+  height: 100%;
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
 
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
-} */
+/* ---- Form ---- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 18px;
+}
+
+.field-label {
+  color: var(--color-text-dim);
+}
+
+.input {
+  background-color: var(--color-input);
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  color: var(--color-text-bright);
+  padding: 10px;
+  transition: border-color 0.3ws;
+}
+
+.input:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+.btn {
+  background-color: var(--color-panel-2);
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px;
+  transition: bordor-color 0.25s, background-color 0.25s, color 0.25s;
+}
+
+.btn-primary {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent)
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.error {
+  color: red;
+  font-size: 12px;
+}

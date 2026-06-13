@@ -14,79 +14,87 @@ function onSubmit() {
 </script>
 
 <template>
-    <form @submit.prevent="onSubmit">
-        <p v-if="error" class="error" role="alert">{{ error }}</p>
-        <label>
-            Username
-            <input v-model="username" type="text"  autocomplete="username" required>
-        </label>
-        <label>
-            Password
-            <input v-model="password" type="password" autocomplete="current-password" required>
-        </label>
-        <button type="submit">Authenticate</button>
-    </form>
+    <div class="login-screen">
+        <div class ="login-card">
+            <div class="login-brand">
+                <span class="login-wordmark">HANDOFF</span>
+                <span class="login-mark">\\</span>
+            </div>
+            <p class="login-tag">Incident context across shift changes</p>
+
+            <form class="login-form" @submit.prevent="onSubmit">
+                <p v-if="error" class="error" role="alert">{{ error }}</p>
+                <div class="field">
+                    <label class="field-label">Username</label>
+                    <input class="input" type="text" v-model="username" placeholder="tom@xxx.hn" autocomplete="username" required>
+                </div>
+                <div class="field">
+                    <label class="field-label">Password</label>
+                    <input class="input" v-model="password" type="password" autocomplete="current-password" required>
+                </div>
+                <button class="btn btn-primary btn-block" type="submit">Authenticate</button>
+            </form>
+            
+            <p class="login-foot mono dim">ON-CALL ACCESS ONLY</p>
+        </div>
+    </div>
 </template>
 
 <style scoped>
-* {
-  box-sizing: border-box;
+
+.login-screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 90vh;
+    padding: 24px;
 }
 
-body {
-    margin: 0;
-    padding: 1rem;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    display: flex;
-    flex-direction: column;
-    justify-content: center; /* Vertically */
-    align-items: center; /* Horizontally */
-    min-height: 100vh; /* percentage */
-    background-color: #f5f5f5;
-    /* color: #333; */
-}
-
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;  /* between elements inside */
+.login-card {
+    background-color: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-top: 3px solid var(--color-accent);
+    border-radius: 8px;
+    padding: 40px;
+    max-width: 380px;
     width: 100%;
-    max-width: 30rem;
-    padding: 2rem; /* from element to box border */
-    border: 1px solid #ccc;
-    border-radius: 0.5rem;
 }
 
-label {
+.login-brand{
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    font-weight: 600;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
 }
 
-input {
-    padding: 0.5rem;
-    border: 1px solid #ccc;
-    border-radius: 0.25rem;
-    font-size: 1rem;
+.login-wordmark {
+    color: var(--color-text-bright);
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 4px;
 }
 
-button {
-    padding: 0.75rem;
-    background-color: #252525;
-    color: white;
-    border: none;
-    border-radius: 0.25rem;
-    font-size: 1rem;
-    cursor: pointer;
-}
-button:hover {
-    background-color: grey
+.login-tag {
+    color: var(--color-text-dim);
+    font-size: 13px;
+    margin: 12px 0 28px;
+    text-align: center;
 }
 
-
-h1 {
-  margin-bottom: 2rem;
+.login-mark {
+    color: var(--color-accent);
+    font-size: 26px;
 }
-.error {color: red;}
+
+.login-form {
+    margin-bottom: 20px;
+}
+
+.login-foot{
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-align: center;
+}
 </style>
