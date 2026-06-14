@@ -16,11 +16,6 @@ const severities = [
     { value: "SEV3", desc: "Minor — contained, low impact" },
 ]
 
-async function handleLogout() {
-  await logout()
-  window.location.href = "/"
-}
-
 async function handleCreateIncident() {
     errors.value = {}
     success_msg.value = ''

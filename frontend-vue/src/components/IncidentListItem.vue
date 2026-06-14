@@ -20,7 +20,7 @@ const created_at = computed(()=> formatAge(props.inc.created_at, now.value))
 </script>
 
 <template>
-    <div class="incident-card">
+    <div class="incident-card" :class="'hover-' + props.inc.severity">
         <RouterLink :to="{name: 'incident-detail', params: { id: props.inc.id } }" class="incident-link">
             <div class="incident-left">
                 <span class="incident-id mono">{{ inc.id }}</span>
@@ -65,7 +65,15 @@ const created_at = computed(()=> formatAge(props.inc.created_at, now.value))
 
 .incident-card:hover {
     border-color: var(--color-border-strong);
-    border-left-color: var(--color-accent);
+}
+.hover-SEV1:hover {
+    border-left-color: var(--color-sev1);
+}
+.hover-SEV2:hover {
+    border-left-color: var(--color-sev2);
+}
+.hover-SEV3:hover {
+    border-left-color: var(--color-sev3);
 }
 
 .incident-link {

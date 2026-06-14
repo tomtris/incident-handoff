@@ -1,30 +1,46 @@
 <script setup lang="ts">
-import { logout } from '@/api';
+import { logout, whoAmI } from '@/api';
+import { useUserContextStore } from '@/stores/userIdentity';
+import type { UserContext } from '@/types';
+import { onMounted, ref } from 'vue';
 
 async function handleLogout() {
-  await logout()
-  window.location.href = "/"
+    await logout()
+    window.location.href = "/"
 }
 
+const makeEmpty =() => {
+    return {id: '', username : '', role : ''}
+  }
+const identity = ref<UserContext>(makeEmpty())
+  
+onMounted(async()=>{
+    try {
+        identity.value = await whoAmI()
+    } catch (e) {
+        alert('Something is wrong.\n' + (e as Error).message)
+        window.location.href = "/"
+    }
+})
 </script>
 
 <template>
     <header class="appbar">
         <div class="appbar-inner">
-            <nav class="appbar-nav">
-                <RouterLink :to="{name: 'incidents'}" class="nav-link">Incidents</RouterLink>
-            </nav>
             <RouterLink :to="{name: 'entry'}" class="brand">
                 <span class="brand-name">Handoff</span>
                 <span class="brand-mark">//</span>
             </RouterLink>
+            <nav class="appbar-nav">
+                <RouterLink :to="{name: 'incidents'}" class="nav-link">Incidents</RouterLink>
+            </nav>
             
             
             <div class="spacer"></div>
             
             <div class="appbar-user">
-                <span class="user-name mono">qdo</span>
-                <span class="user-role">engineer</span>
+                <span class="user-name mono"> {{ identity.username }}</span>
+                <span class="user-role">{{identity.role}}</span>
             </div>
             <button class="btn appbar-logout" @click="handleLogout">Log out</button>
         </div>

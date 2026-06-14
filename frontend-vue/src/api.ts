@@ -1,4 +1,4 @@
-import type { Incident, CreateIncidentRequest, Severity, TimelineEntry, UserContext } from "./types.js";
+import type { Incident, CreateIncidentRequest, Severity, TimelineEntry, UserContext, IncidentStatus, TimelineEntryType } from "./types.js";
 
 interface ApiError {
     error: {
@@ -60,7 +60,7 @@ export async function createIncident(input:CreateIncidentRequest) : Promise<Inci
     })
 }
 
-export async function addEntry(incidentId: string, type: string, text:string) : Promise<TimelineEntry> {
+export async function addEntry(incidentId: string, type: TimelineEntryType, text:string) : Promise<TimelineEntry> {
     console.log(incidentId)
     return await request<TimelineEntry>(`/api/incidents/${incidentId}/entries`, {
         method: "POST",
@@ -77,7 +77,7 @@ export async function whoAmI() : Promise<UserContext> {
     return await request<UserContext>("/api/auth/me", undefined)
 }
 
-export async function updateIncident(id:string, payload: Record<string, string>) : Promise<void> {
+export async function updateIncident(id:string, payload: {severity: Severity, status: IncidentStatus, on_call: string}) : Promise<void> {
     return await request<void>(`/api/incidents/${id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
