@@ -129,4 +129,32 @@ const created_at = computed(()=> formatAge(props.inc.created_at, now.value))
 .incident-created {
     font-size: 12px
 }
+
+@media(max-width:768px) {
+    .incident-link {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .incident-left {
+        align-items: center;
+        flex-direction: row;
+        gap: 10px;
+        width: auto;
+    }
+
+    .incident-meta {
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+
+    .incident-right {
+        align-items: flex-start;
+        flex-direction: row;
+        gap: 12px;
+        width: auto;
+    }
+}
+
 </style>

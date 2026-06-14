@@ -35,7 +35,7 @@ const filteredIncidents = computed(() => {
 
 <template>
   <main>
-    <AppHeader @submit="handleLogout"></AppHeader>
+    <AppHeader></AppHeader>
     <div class="page">
       <div class="dash-head">
         <div>
@@ -98,5 +98,23 @@ const filteredIncidents = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+
+@media (max-width: 768px) {
+  .dash-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .filters {
+    flex-direction: column;
+  }
+
+  .filter {
+    width: 100%;
+  }
+
 }
 </style>

@@ -1,23 +1,24 @@
 <script setup lang="ts">
+import { logout } from '@/api';
 
-const emit = defineEmits<{
-    submit: [{}]
-}>()
-function onSubmit() {
+async function handleLogout() {
+  await logout()
+  window.location.href = "/"
 }
+
 </script>
 
 <template>
     <header class="appbar">
         <div class="appbar-inner">
+            <nav class="appbar-nav">
+                <RouterLink :to="{name: 'incidents'}" class="nav-link">Incidents</RouterLink>
+            </nav>
             <RouterLink :to="{name: 'entry'}" class="brand">
                 <span class="brand-name">Handoff</span>
                 <span class="brand-mark">//</span>
             </RouterLink>
             
-            <nav class="appbar-nav">
-                <RouterLink :to="{name: 'incidents'}" class="nav-link">Incidents</RouterLink>
-            </nav>
             
             <div class="spacer"></div>
             
@@ -25,7 +26,7 @@ function onSubmit() {
                 <span class="user-name mono">qdo</span>
                 <span class="user-role">engineer</span>
             </div>
-            <button class="btn appbar-logout" @click="onSubmit">Log out</button>
+            <button class="btn appbar-logout" @click="handleLogout">Log out</button>
         </div>
     </header>
 </template>
@@ -42,7 +43,7 @@ function onSubmit() {
   gap: 24px;
   margin: 0 auto;
   max-width: 1100px;
-  padding: 0 auto;
+  padding: 0 24px;
 }
 
 .brand {
