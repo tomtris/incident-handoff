@@ -58,14 +58,21 @@ func NewOnCallStore() OnCallStore {
 	return NewInMemoryOnCallStore(seedOnCalls)
 }
 
-func NewUserStore() UserStore {
-	var seedUsers = []User{
-		{ID: "u1", Username: "anh", Password: hashPassword("anh123"), Role: "engineer"},
-		{ID: "u2", Username: "bernd", Password: hashPassword("bernd123"), Role: "engineer"},
-		{ID: "u3", Username: "admin", Password: hashPassword("admin123"), Role: "admin"},
-	}
-	return NewInMemoryUserStore(seedUsers)
-}
+// func NewUserStore() UserStore {
+// 	pwd1, err1 := HashPassword("anh123")
+// 	pwd2, err2 := HashPassword("bernd123")
+// 	pwd3, err3 := HashPassword("admin123")
+// 	if err1 != nil || err2 != nil || err3 != nil {
+// 		log.Fatalf("HashPassword has problem")
+// 	}
+
+// 	var seedUsers = []User{
+// 		{ID: "u1", Username: "anh", Password: pwd1, Role: "engineer"},
+// 		{ID: "u2", Username: "bernd", Password: pwd2, Role: "engineer"},
+// 		{ID: "u3", Username: "admin", Password: pwd3, Role: "admin"},
+// 	}
+// 	return NewInMemoryUserStore(seedUsers)
+// }
 
 func main() {
 	// init metrics
@@ -100,7 +107,7 @@ func main() {
 	}
 
 	// init authHandler
-	userStore := NewUserStore()
+	userStore := NewInMemoryUserStore()
 	authHandler := NewAuthHandler(userStore, []byte(config.JWT_SECRET), time.Duration(15*time.Minute))
 
 	// Set router

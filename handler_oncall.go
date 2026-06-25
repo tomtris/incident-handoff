@@ -36,7 +36,7 @@ func (entry *OnCallEntry) Validation() error {
 func (h *OnCallHandler) CreateShift(r *http.Request) (*AppResponse, *AppError) {
 	entry := OnCallEntry{}
 	if err := json.NewDecoder(r.Body).Decode(&entry); err != nil {
-		return nil, BadRequest(err)
+		return nil, BadRequest(MalformedRequestBody)
 	}
 
 	if err := entry.Validation(); err != nil {

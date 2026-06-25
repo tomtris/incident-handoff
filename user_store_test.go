@@ -7,12 +7,20 @@ import (
 )
 
 func TestGetByUsername(t *testing.T) {
-	var seedUsers = []User{
-		{ID: "u1", Username: "anh", Password: hashPassword("anh123"), Role: "engineer"},
-		{ID: "u2", Username: "bernd", Password: hashPassword("bernd123"), Role: "engineer"},
-		{ID: "u3", Username: "admin", Password: hashPassword("admin123"), Role: "admin"},
+	pwd1, err1 := HashPassword("anh123")
+	pwd2, err2 := HashPassword("bernd123")
+	pwd3, err3 := HashPassword("admin123")
+	if err1 != nil || err2 != nil || err3 != nil {
+		t.Fatalf("HashPassword has problem")
 	}
-	users := NewInMemoryUserStore(seedUsers)
+
+	var seedUsers = []User{
+		{ID: "u1", Username: "anh", Password: pwd1, Role: "engineer"},
+		{ID: "u2", Username: "bernd", Password: pwd2, Role: "engineer"},
+		{ID: "u3", Username: "admin", Password: pwd3, Role: "admin"},
+	}
+
+	users := NewInMemoryUserStoreWithSeed(seedUsers)
 	for _, each := range users.users {
 		_, err := users.GetByUsername(context.Background(), each.Username)
 		if err != nil {
@@ -27,12 +35,21 @@ func TestGetByUsername(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	var seedUsers = []User{
-		{ID: "u1", Username: "anh", Password: hashPassword("anh123"), Role: "engineer"},
-		{ID: "u2", Username: "bernd", Password: hashPassword("bernd123"), Role: "engineer"},
-		{ID: "u3", Username: "admin", Password: hashPassword("admin123"), Role: "admin"},
+
+	pwd1, err1 := HashPassword("anh123")
+	pwd2, err2 := HashPassword("bernd123")
+	pwd3, err3 := HashPassword("admin123")
+	if err1 != nil || err2 != nil || err3 != nil {
+		t.Fatalf("HashPassword has problem")
 	}
-	users := NewInMemoryUserStore([]User{})
+
+	var seedUsers = []User{
+		{ID: "u1", Username: "anh", Password: pwd1, Role: "engineer"},
+		{ID: "u2", Username: "bernd", Password: pwd2, Role: "engineer"},
+		{ID: "u3", Username: "admin", Password: pwd3, Role: "admin"},
+	}
+
+	users := NewInMemoryUserStoreWithSeed([]User{})
 
 	t.Run("normal creation with sequential IDs", func(t *testing.T) {
 		u0, err0 := users.Create(seedUsers[0])

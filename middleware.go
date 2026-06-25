@@ -189,3 +189,19 @@ func ResponseMiddleware(next func(*http.Request) (*AppResponse, *AppError)) http
 		writeJSON(w, res.Status, requestID, res.Body)
 	}
 }
+
+func LoginResponseMiddleware(next func(http.ResponseWriter, *http.Request) (*AppResponse, *AppError)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		requestID := r.Context().Value(requestIDKey).(string)
+		res, appErr := next(w, r)
+		if appErr != nil {
+			writeError(w, appErr.Status, ErrorMessageJSON{
+				ErrorCode: appErr.Code,
+				Message:   appErr.Err.Error(),
+				RequestID: requestID,
+			})
+			return
+		}
+		writeJSON(w, res.Status, requestID, res.Body)
+	}
+}

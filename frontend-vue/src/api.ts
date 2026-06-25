@@ -15,15 +15,21 @@ export async function isAuthenticated() : Promise<boolean> {
 }
 
 async function request<T>(url: string, init?: RequestInit) : Promise<T> {
+    console.log(url)
+    console.log(111)
     const res = await fetch(url, {
         credentials: "include",
         ...init,
     })
+    console.log(222)
     if (res.status == 204) {
         return undefined as T
     }
     
+    console.log(33333333)
     const data: unknown = await res.json()
+    console.log(data)
+    console.log(4444444)
     if (!res.ok) {
         const err = data as ApiError
         const errorCode = err.error.code;
@@ -32,6 +38,14 @@ async function request<T>(url: string, init?: RequestInit) : Promise<T> {
     }
     
     return data as T
+}
+
+export async function registration(username:string, password:string) : Promise<void> {
+    return await request<void>("/registration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+    })
 }
 
 export async function login(username:string, password:string) : Promise<void> {

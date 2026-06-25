@@ -13,7 +13,7 @@ type FlagHandler struct {
 func (flagHandler *FlagHandler) CreateFlag(r *http.Request) (*AppResponse, *AppError) {
 	f := FeatureFlag{}
 	if err := json.NewDecoder(r.Body).Decode(&f); err != nil {
-		return nil, BadRequest(err)
+		return nil, BadRequest(MalformedRequestBody)
 	}
 	if err := f.Validate(); err != nil {
 		return nil, BadRequest(err)
@@ -31,7 +31,7 @@ func (flagHandler *FlagHandler) CreateFlag(r *http.Request) (*AppResponse, *AppE
 func (flagHandler *FlagHandler) UpdateFlag(r *http.Request) (*AppResponse, *AppError) {
 	u := FeatureFlagUpdate{}
 	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
-		return nil, BadRequest(err)
+		return nil, BadRequest(MalformedRequestBody)
 	}
 	u.Name = r.PathValue("name")
 	if err := u.Validate(); err != nil {

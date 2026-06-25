@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { login, whoAmI } from '@/api.ts';
-import { useUserContextStore } from '@/stores/userIdentity';
 
 const error = ref('')
 const username = ref('')

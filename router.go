@@ -61,7 +61,8 @@ func getRouter(
 	public.Handle("GET /metrics", promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{Registry: promRegistry}))
 	public.HandleFunc("GET /healthz", healthCheck)
 	public.HandleFunc("GET /readyz", readyCheck(mongoClient))
-	public.HandleFunc("POST /login", authHandler.LoginHandler)
+	public.HandleFunc("POST /login", LoginResponseMiddleware(authHandler.LoginHandler))
+	public.HandleFunc("POST /registration", ResponseMiddleware(authHandler.RegistrationHandler))
 	// public.Handle("GET /", http.FileServer(http.Dir("./frontend/public")))
 	public.Handle("GET /", spaHandler("./frontend-vue/dist"))
 

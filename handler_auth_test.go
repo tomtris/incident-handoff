@@ -13,31 +13,41 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func doLogin(t *testing.T, authHandler *AuthHandler, body any) *httptest.ResponseRecorder {
+func doLogin(t *testing.T, authHandler *AuthHandler, body any) (*httptest.ResponseRecorder, *AppResponse, *AppError) {
 	t.Helper()
 	userLoginBytes, _ := json.Marshal(body)
 	req := httptest.NewRequest("POST", "/", bytes.NewReader([]byte(userLoginBytes)))
 	rec := httptest.NewRecorder()
-	authHandler.LoginHandler(rec, req)
-	return rec
+	appRes, appErr := authHandler.LoginHandler(rec, req)
+	return rec, appRes, appErr
 }
 
 func TestLoginHandler(t *testing.T) {
-	var seedUsers = []User{
-		{ID: "u1", Username: "anh", Password: hashPassword("anh123"), Role: "engineer"},
-		{ID: "u2", Username: "bernd", Password: hashPassword("bernd123"), Role: "engineer"},
-		{ID: "u3", Username: "admin", Password: hashPassword("admin123"), Role: "admin"},
+	pwd1, err1 := HashPassword("anh123")
+	pwd2, err2 := HashPassword("bernd123")
+	pwd3, err3 := HashPassword("admin123")
+	if err1 != nil || err2 != nil || err3 != nil {
+		t.Fatalf("HashPassword has problem")
 	}
-	userStore := NewInMemoryUserStore(seedUsers)
+
+	var seedUsers = []User{
+		{ID: "u1", Username: "anh", Password: pwd1, Role: "engineer"},
+		{ID: "u2", Username: "bernd", Password: pwd2, Role: "engineer"},
+		{ID: "u3", Username: "admin", Password: pwd3, Role: "admin"},
+	}
+	userStore := NewInMemoryUserStoreWithSeed(seedUsers)
 	authHandler := NewAuthHandler(userStore, []byte("JWT-secret"), time.Duration(15*time.Minute))
 	t.Run("Normal login", func(t *testing.T) {
 		userLogin := UserLogin{
 			Username: "anh",
 			Password: "anh123",
 		}
-		rec := doLogin(t, authHandler, userLogin)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expect status %v, get %v", http.StatusOK, rec.Code)
+		rec, appRes, appErr := doLogin(t, authHandler, userLogin)
+		if appErr != nil {
+			t.Fatalf("expect no error, only response = nil, get error")
+		}
+		if appRes.Status != http.StatusOK {
+			t.Fatalf("expect status %v, get %v", http.StatusOK, appRes.Status)
 		}
 		cookies := rec.Result().Cookies()
 		accessToken := ""
@@ -70,9 +80,12 @@ func TestLoginHandler(t *testing.T) {
 			Username: "anh11111",
 			Password: "anh123",
 		}
-		rec := doLogin(t, authHandler, userLogin)
-		if rec.Code != http.StatusUnauthorized {
-			t.Fatalf("expect status %v, get %v", http.StatusUnauthorized, rec.Code)
+		_, appRes, appErr := doLogin(t, authHandler, userLogin)
+		if appRes != nil {
+			t.Fatalf("expect no response, only error = nil, get Response")
+		}
+		if appErr.Status != http.StatusUnauthorized {
+			t.Fatalf("expect status %v, get %v", http.StatusUnauthorized, appErr.Status)
 		}
 	})
 	t.Run("wrong password", func(t *testing.T) {
@@ -80,9 +93,12 @@ func TestLoginHandler(t *testing.T) {
 			Username: "anh",
 			Password: "anh1423",
 		}
-		rec := doLogin(t, authHandler, userLogin)
-		if rec.Code != http.StatusUnauthorized {
-			t.Fatalf("expect status %v, get %v", http.StatusUnauthorized, rec.Code)
+		_, appRes, appErr := doLogin(t, authHandler, userLogin)
+		if appRes != nil {
+			t.Fatalf("expect no response, only error = nil, get Response")
+		}
+		if appErr.Status != http.StatusUnauthorized {
+			t.Fatalf("expect status %v, get %v", http.StatusUnauthorized, appErr.Status)
 		}
 	})
 	t.Run("Token Expired", func(t *testing.T) {
@@ -91,9 +107,13 @@ func TestLoginHandler(t *testing.T) {
 			Username: "anh",
 			Password: "anh123",
 		}
-		rec := doLogin(t, authHandler, userLogin)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expect status %v, get %v", http.StatusOK, rec.Code)
+		rec, appRes, appErr := doLogin(t, authHandler, userLogin)
+
+		if appErr != nil {
+			t.Fatalf("expect no error, only response = nil, get error")
+		}
+		if appRes.Status != http.StatusOK {
+			t.Fatalf("expect status %v, get %v", http.StatusOK, appRes.Status)
 		}
 		cookies := rec.Result().Cookies()
 		accessToken := ""

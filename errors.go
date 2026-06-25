@@ -16,6 +16,9 @@ func (e AppError) Error() string { return e.Err.Error() }
 func BadRequest(err error) *AppError {
 	return &AppError{Status: http.StatusBadRequest, Code: "BAD_REQUEST", Err: err}
 }
+func UnprocessableEntity(err error) *AppError {
+	return &AppError{Status: http.StatusBadRequest, Code: "UNPROCESSABLE_ENTITY", Err: err}
+}
 func InternalServerError(err error) *AppError {
 	return &AppError{Status: http.StatusInternalServerError, Code: "INTERNAL_ERROR", Err: err}
 }
@@ -30,6 +33,10 @@ func Conflict(err error) *AppError {
 
 func Forbidden(err error) *AppError {
 	return &AppError{Status: http.StatusForbidden, Code: "FORBIDDEN", Err: err}
+}
+
+func Unauthorized(err error) *AppError {
+	return &AppError{Status: http.StatusUnauthorized, Code: "FORBIDDEN", Err: err}
 }
 
 type ErrorMessageJSON struct {
@@ -64,6 +71,7 @@ var ErrFlagAlreadyExist = errors.New("Flag is already in use")
 var ErrUserAlreadyExist = errors.New("username already exist")
 var OnCallUserNotFound = errors.New("No OnCall is available")
 var ErrServiceRequired = errors.New("service required")
+var MalformedRequestBody = errors.New("malformed request body")
 
 // auth
 var ErrUserNotFound = errors.New("User Not Found")

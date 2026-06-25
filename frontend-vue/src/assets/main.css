@@ -226,11 +226,13 @@ a {
 .success-message {
   color: var(--color-success, #0cce6b);
   font-size: 13px;
+  text-align: center;
 }
 
 .error {
   color: red;
   font-size: 12px;
+  text-align: center;
 }
 
 .back {

@@ -2,24 +2,106 @@ package main
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
+func mustHash(t *testing.T, pw string) string {
+	t.Helper()
+	h, err := HashPassword(pw)
+	if err != nil {
+		t.Fatalf("HashPassword(%q) returned error: %v", pw, err)
+	}
+	if h == "" {
+		t.Fatalf("HashPassword(%q) returned empty hash", pw)
+	}
+	return h
+}
+
 func TestPasswordRoundtrip(t *testing.T) {
-	hashed := hashPassword("correct-password")
-	if err := VerifyPassword(hashed, "correct-password"); err != nil {
-		t.Fatalf("expected no error, get %v", err.Error())
-	}
-	if err := VerifyPassword(hashed, "wrong-password"); err == nil {
-		t.Fatalf("expected error, get no error")
-	}
-	hashed2 := hashPassword("correct-password")
-	if hashed == hashed2 {
-		t.Fatalf("expected non deterministic hash result")
-	}
+	t.Run("correct password verifies", func(t *testing.T) {
+		h := mustHash(t, "correct-password")
+		if err := VerifyPassword(h, "correct-password"); err != nil {
+			t.Fatalf("expected match, got %v", err)
+		}
+	})
+
+	t.Run("wrong password is rejected", func(t *testing.T) {
+		h := mustHash(t, "correct-password")
+		err := VerifyPassword(h, "wrong-password")
+		if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			t.Fatalf("expected ErrMismatchedHashAndPassword, got %v", err)
+		}
+	})
+
+	t.Run("salt makes hashes non-deterministic", func(t *testing.T) {
+		h1 := mustHash(t, "correct-password")
+		h2 := mustHash(t, "correct-password")
+		if h1 == h2 {
+			t.Fatal("expected differing hashes from per-call salt")
+		}
+		// both must still verify despite differing
+		if err := VerifyPassword(h2, "correct-password"); err != nil {
+			t.Fatalf("second hash failed to verify: %v", err)
+		}
+	})
+
+	// The reason this construction exists: bcrypt alone caps at 72 bytes.
+	t.Run("password over 72 bytes verifies", func(t *testing.T) {
+		long := strings.Repeat("a", 100) // 100 bytes, exceeds bcrypt's 72-byte limit
+		h := mustHash(t, long)
+		if err := VerifyPassword(h, long); err != nil {
+			t.Fatalf("100-byte password failed to verify: %v", err)
+		}
+	})
+
+	// Distinct passwords sharing a 72-byte prefix must NOT collide.
+	// Without the SHA-256 pre-hash, bcrypt truncates and these would match.
+	t.Run("long passwords sharing 72-byte prefix do not collide", func(t *testing.T) {
+		prefix := strings.Repeat("a", 72)
+		pwX := prefix + "X"
+		pwY := prefix + "Y"
+		h := mustHash(t, pwX)
+		if err := VerifyPassword(h, pwY); err == nil {
+			t.Fatal("passwords differing only past byte 72 collided — truncation bug")
+		}
+	})
+
+	// Multi-byte input: the base64 step exists to guarantee no NUL reaches bcrypt.
+	t.Run("multibyte password verifies", func(t *testing.T) {
+		pw := strings.Repeat("ế", 40) // 120 bytes in UTF-8, multi-byte runes
+		h := mustHash(t, pw)
+		if err := VerifyPassword(h, pw); err != nil {
+			t.Fatalf("multibyte password failed to verify: %v", err)
+		}
+		if err := VerifyPassword(h, strings.Repeat("ế", 39)); err == nil {
+			t.Fatal("shorter multibyte password incorrectly matched")
+		}
+	})
+
+	t.Run("empty password roundtrips", func(t *testing.T) {
+		h := mustHash(t, "")
+		if err := VerifyPassword(h, ""); err != nil {
+			t.Fatalf("empty password failed to verify: %v", err)
+		}
+		if err := VerifyPassword(h, "x"); err == nil {
+			t.Fatal("non-empty matched empty hash")
+		}
+	})
+
+	t.Run("malformed stored hash is not a mismatch error", func(t *testing.T) {
+		err := VerifyPassword("not-a-bcrypt-hash", "anything")
+		if err == nil {
+			t.Fatal("expected error for malformed hash")
+		}
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			t.Fatal("malformed hash must not report as wrong-password; it is an integrity error")
+		}
+	})
 }
 
 func TestIssueToken(t *testing.T) {

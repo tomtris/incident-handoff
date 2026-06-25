@@ -2,8 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
@@ -21,44 +24,53 @@ func NewAuthHandler(users UserStore, secret []byte, ttl time.Duration) *AuthHand
 		Now:    time.Now}
 }
 
-func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	requestID, _ := r.Context().Value(requestIDKey).(string)
-
-	answerUnauthorized := func() {
-		writeError(w, http.StatusUnauthorized, ErrorMessageJSON{
-			ErrorCode: "NOT_AUTHORIZED",
-			Message:   "Username or password is wrong",
-			RequestID: requestID,
-		})
-	}
-	answerInternalError := func(msg string) {
-		writeError(w, http.StatusInternalServerError, ErrorMessageJSON{
-			ErrorCode: "INTERNAL_SERVER_ERROR",
-			Message:   msg,
-			RequestID: requestID,
-		})
+func (h *AuthHandler) RegistrationHandler(r *http.Request) (*AppResponse, *AppError) {
+	u := UserRegistration{}
+	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+		return nil, BadRequest(MalformedRequestBody)
 	}
 
-	submitted := UserLogin{}
-	if err := json.NewDecoder(r.Body).Decode(&submitted); err != nil {
-		answerUnauthorized()
-		return
+	if err := u.Validate(); err != nil {
+		return nil, UnprocessableEntity(err)
 	}
 
-	user, err := h.Users.GetByUsername(r.Context(), submitted.Username)
+	hashedPassword, err := HashPassword(u.Password)
 	if err != nil {
-		answerUnauthorized()
-		return
+		return nil, InternalServerError(err)
 	}
-	if err := VerifyPassword(user.Password, submitted.Password); err != nil {
-		answerUnauthorized()
-		return
+
+	if _, err := h.Users.Create(User{
+		Username: u.Username,
+		Password: hashedPassword,
+	}); err != nil {
+		return nil, Conflict(err)
+	}
+	return newAppResponse(http.StatusNoContent, nil), nil
+}
+
+func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) (*AppResponse, *AppError) {
+	u := UserLogin{}
+	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+		return nil, BadRequest(MalformedRequestBody)
+	}
+
+	user, err := h.Users.GetByUsername(r.Context(), u.Username)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return nil, Unauthorized(errors.New("Username or Password not correct"))
+		}
+		return nil, Unauthorized(err)
+	}
+	if err := VerifyPassword(user.Password, u.Password); err != nil {
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			return nil, Unauthorized(errors.New("Username or Password not correct"))
+		}
+		return nil, Unauthorized(err)
 	}
 
 	token, err := IssueToken(user, h.Secret, h.TTL, h.Now())
 	if err != nil {
-		answerInternalError("Token signing failed")
-		return
+		return nil, InternalServerError(errors.New("Token signing failed"))
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -70,7 +82,8 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
-	writeJSON(w, http.StatusOK, requestID, map[string]string{"status": "ok"})
+
+	return newAppResponse(http.StatusOK, map[string]string{"status": "ok"}), nil
 }
 
 func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {

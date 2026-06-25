@@ -15,11 +15,16 @@ type InMemoryUserStore struct {
 	currentID int
 }
 
-func NewInMemoryUserStore(seed []User) *InMemoryUserStore {
+func NewInMemoryUserStoreWithSeed(seed []User) *InMemoryUserStore {
 	m := make(map[string]User, len(seed))
 	for _, u := range seed {
 		m[u.Username] = u
 	}
+	return &InMemoryUserStore{users: m}
+}
+
+func NewInMemoryUserStore() *InMemoryUserStore {
+	m := make(map[string]User)
 	return &InMemoryUserStore{users: m}
 }
 

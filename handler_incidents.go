@@ -52,7 +52,7 @@ func marshalIncidentUpdateEvent(incAfter Incident) json.RawMessage {
 func (h *IncidentHandler) CreateIncident(r *http.Request) (*AppResponse, *AppError) {
 	req := CreateIncidentRequest{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return nil, BadRequest(err)
+		return nil, BadRequest(MalformedRequestBody)
 	}
 
 	if err := req.Validate(); err != nil {
@@ -107,7 +107,7 @@ func (h *IncidentHandler) AddEntry(r *http.Request) (*AppResponse, *AppError) {
 
 	timelineEntry := TimelineEntry{}
 	if err := json.NewDecoder(r.Body).Decode(&timelineEntry); err != nil {
-		return nil, BadRequest(err)
+		return nil, BadRequest(MalformedRequestBody)
 	}
 	if err := timelineEntry.Validate(); err != nil {
 		return nil, BadRequest(err)
@@ -163,7 +163,7 @@ func (h *IncidentHandler) UpdateIncident(r *http.Request) (*AppResponse, *AppErr
 
 	incidentUpdate := IncidentUpdate{}
 	if err := json.NewDecoder(r.Body).Decode(&incidentUpdate); err != nil {
-		return nil, BadRequest(err)
+		return nil, BadRequest(MalformedRequestBody)
 	}
 	if err := incidentUpdate.Validate(); err != nil {
 		return nil, BadRequest(err)

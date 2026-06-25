@@ -20,6 +20,7 @@ export default defineConfig({
       '/api': 'http://localhost:8080',
       '/admin': 'http://localhost:8080',
       '/login': 'http://localhost:8080',
+      '/registration': 'http://localhost:8080',
     },
    },
 })
