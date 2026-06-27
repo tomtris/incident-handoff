@@ -11,10 +11,11 @@ COPY backend-go/go.mod ./
 COPY backend-go/go.sum ./
 RUN go mod download
 COPY backend-go/ .
-COPY --from=frontend /app/dist ./frontend-vue/dist
 RUN go build
 
 FROM alpine:3.24.1
 WORKDIR /app
-COPY --from=backend /app/handoff ./
+COPY --from=frontend /app/dist ./frontend-vue/dist
+COPY --from=backend /app/handoff ./backend-go/handoff
+WORKDIR /app/backend-go
 CMD ["./handoff"]
