@@ -11,7 +11,6 @@ import (
 
 type Config struct {
 	Port             string // default "8080",   env: HANDOFF_PORT
-	LogLevel         string // default "info",   env: HANDOFF_LOG_LEVEL
 	Environment      string // default "development", env: HANDOFF_ENV
 	ConnectionString string // default "", env HANDOFF_CONNECT_STRING
 	DatabaseName     string
@@ -25,7 +24,6 @@ func loadConfig() Config {
 
 	config := Config{
 		Port:             envOr("HANDOFF_PORT", "8080"),
-		LogLevel:         envOr("HANDOFF_LOG_LEVEL", "info"),
 		Environment:      envOr("HANDOFF_ENV", "development"),
 		ConnectionString: envOr("HANDOFF_CONNECT_STRING", ""),
 		DatabaseName:     envOr("HANDOFF_DB", "incident_tracker"),
