@@ -1,5 +1,5 @@
 run:
-	cd ./frontend-vue && npm run build
+	cd ./frontend-vue && npm install && npm audit fix && npm run build
 	go -C backend-go run .
 
 env:
@@ -12,3 +12,6 @@ test:
 	
 test-race:
 	cd ./backend-go && go test -race -coverprofile=cover.out && go tool cover -html=cover.out
+	
+test-ci:
+	./bin/act --container-architecture linux/amd64 -P ubuntu-latest=catthehacker/ubuntu:act-latest

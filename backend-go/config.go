@@ -29,10 +29,10 @@ func loadConfig() Config {
 		Environment:      envOr("HANDOFF_ENV", "development"),
 		ConnectionString: envOr("HANDOFF_CONNECT_STRING", ""),
 		DatabaseName:     envOr("HANDOFF_DB", "incident_tracker"),
-		JWT_SECRET:       envOr("JWT_SECRET", ""),
+		JWT_SECRET:       envOr("HANDOFF_JWT_SECRET", ""),
 	}
 	if len(config.JWT_SECRET) == 0 {
-		log.Fatalln("JWT_SECRET empty")
+		log.Fatalln("HANDOFF_JWT_SECRET empty")
 	}
 	return config
 }
