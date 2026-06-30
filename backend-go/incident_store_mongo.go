@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"log/slog"
-	"strconv"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -15,27 +12,14 @@ import (
 )
 
 type MongoIncidentStore struct {
-	db *mongo.Database
+	col *mongo.Collection
 }
 
-func (m *MongoIncidentStore) DropAll(ctx context.Context) error {
-	return m.db.Drop(ctx)
-}
-
-func NewMongoIncidentStore(client *mongo.Client, DBName string) *MongoIncidentStore {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	err := client.Ping(ctx, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	db := client.Database(DBName)
-
+func NewMongoIncidentStore(col *mongo.Collection) (*MongoIncidentStore, error) {
 	// Sofar, it's the best, even at scale.
 	// Becaus most incidents should be resolved overtime
 	// And the heaviest case that index can help is list status = "active"
-	_, err = db.Collection(CollectionIncidents).Indexes().CreateMany(context.Background(), []mongo.IndexModel{
+	_, err := db.Collection(CollectionIncidents).Indexes().CreateMany(context.Background(), []mongo.IndexModel{
 		{Keys: bson.D{
 			{Key: "status", Value: 1},
 			{Key: "service", Value: 1},
@@ -46,33 +30,16 @@ func NewMongoIncidentStore(client *mongo.Client, DBName string) *MongoIncidentSt
 			{Key: "created_at", Value: 1},
 		}},
 	})
-	if err != nil {
-		log.Fatal("error for indexing incidents")
-	}
-	slog.Info("schema/indexes ensured")
-	return &MongoIncidentStore{db: db}
-}
 
-func (m *MongoIncidentStore) nextID(ctx context.Context, name string, prefix string) (string, error) {
-	col := m.db.Collection(CollectionIncidentCounters)
-	filter := bson.M{"_id": name}
-	update := bson.M{"$inc": bson.M{"seq": 1}}
-	opts := options.FindOneAndUpdate().
-		SetUpsert(true).
-		SetReturnDocument(options.After)
-
-	var result struct {
-		Seq int `bson:"seq"`
-	}
-	err := col.FindOneAndUpdate(ctx, filter, update, opts).Decode(&result)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("error for indexing incidents")
 	}
-	return prefix + strconv.Itoa(result.Seq), nil
+
+	return &MongoIncidentStore{col: col}, nil
 }
 
 func (m *MongoIncidentStore) CreateIncident(ctx context.Context, openedBy string, onCall string, incReq CreateIncidentRequest) (Incident, error) {
-	id, err := m.nextID(ctx, "incident", incidentIDPrefix)
+	id, err := mongoNextID(ctx, CollectionCountersIncident, incidentIDPrefix)
 	if err != nil {
 		return Incident{}, errors.New("Failed to get next incident Id: " + err.Error())
 	}
@@ -90,8 +57,7 @@ func (m *MongoIncidentStore) CreateIncident(ctx context.Context, openedBy string
 		Version:   1,
 	}
 
-	col := m.db.Collection(CollectionIncidents)
-	_, err = col.InsertOne(ctx, inc)
+	_, err = m.col.InsertOne(ctx, inc)
 	if err != nil {
 		return Incident{}, errors.New("Failed to insert Incident: " + err.Error())
 	}
@@ -99,10 +65,9 @@ func (m *MongoIncidentStore) CreateIncident(ctx context.Context, openedBy string
 }
 
 func (m *MongoIncidentStore) GetIncident(ctx context.Context, id string) (Incident, error) {
-	col := m.db.Collection(CollectionIncidents)
 	filter := bson.M{"_id": id}
 	var inc Incident
-	err := col.FindOne(ctx, filter).Decode(&inc)
+	err := m.col.FindOne(ctx, filter).Decode(&inc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return inc, ErrIncidentNotFound
@@ -113,7 +78,7 @@ func (m *MongoIncidentStore) GetIncident(ctx context.Context, id string) (Incide
 }
 
 func (m *MongoIncidentStore) AddEntry(ctx context.Context, incID string, expectedIncVersion int, entry TimelineEntry) (TimelineEntry, error) {
-	id, err := m.nextID(ctx, "timeline_entry", entryIDPrefix)
+	id, err := mongoNextID(ctx, CollectionCountersTimelineEntry, TimelineEntryIDPrefix)
 	if err != nil {
 		return entry, err
 	}
@@ -141,9 +106,7 @@ func (m *MongoIncidentStore) AddEntry(ctx context.Context, incID string, expecte
 	var prev struct {
 		Status string `bson:"status"`
 	}
-	err = m.db.Collection(CollectionIncidents).
-		FindOneAndUpdate(ctx, filter, pipeline, opts).
-		Decode(&prev)
+	err = m.col.FindOneAndUpdate(ctx, filter, pipeline, opts).Decode(&prev)
 
 	switch {
 	case errors.Is(err, mongo.ErrNoDocuments):
@@ -172,9 +135,8 @@ func (m *MongoIncidentStore) ListIncidents(ctx context.Context, incFilter Incide
 		dbFilter["status"] = incFilter.Status
 	}
 
-	col := m.db.Collection(CollectionIncidents)
 	opts := options.Find().SetSort(bson.M{"created_at": 1})
-	cursor, err := col.Find(ctx, dbFilter, opts)
+	cursor, err := m.col.Find(ctx, dbFilter, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -189,35 +151,31 @@ func (m *MongoIncidentStore) ListIncidents(ctx context.Context, incFilter Incide
 	return incidents, err
 }
 
-func (m *MongoIncidentStore) UpdateIncident(ctx context.Context, incID string, expectedIncVersion int, update IncidentUpdate) (Incident, error) {
+func (m *MongoIncidentStore) UpdateIncident(ctx context.Context, incID string, expectedIncVersion int, incidentUpdate IncidentUpdate) (Incident, error) {
 	fields := bson.M{
 		"updated_at": time.Now(),
 		"version":    expectedIncVersion + 1,
 	}
-	if update.Status != nil {
-		fields["status"] = *update.Status
+	if incidentUpdate.Status != nil {
+		fields["status"] = *incidentUpdate.Status
 	}
-	if update.Severity != nil {
-		fields["severity"] = *update.Severity
+	if incidentUpdate.Severity != nil {
+		fields["severity"] = *incidentUpdate.Severity
 	}
-	if update.OnCall != nil {
-		fields["on_call"] = *update.OnCall
+	if incidentUpdate.OnCall != nil {
+		fields["on_call"] = *incidentUpdate.OnCall
 	}
+
+	update := bson.M{"$set": fields}
 
 	filter := bson.M{
 		"_id":     incID,
 		"version": expectedIncVersion,
 	}
 
-	col := m.db.Collection(CollectionIncidents)
 	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
 	var incAfter Incident
-	err := col.FindOneAndUpdate(
-		ctx,
-		filter,
-		bson.M{"$set": fields},
-		opts,
-	).Decode(&incAfter)
+	err := m.col.FindOneAndUpdate(ctx, filter, update, opts).Decode(&incAfter)
 
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {

@@ -8,50 +8,53 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-func NewOnCallStore() OnCallStore {
-	oc1 := OnCallEntry{
-		ID:       "u1",
-		Service:  "payment",
-		Username: "anh",
-		StartsAt: time.Now().Add(-1 * time.Minute),
-		EndsAt:   time.Now().Add(999999 * time.Hour),
-	}
+var db *mongo.Database
 
-	oc2 := OnCallEntry{
-		ID:       "u2",
-		Service:  "database",
-		Username: "bernd",
-		StartsAt: time.Now().Add(-1 * time.Minute),
-		EndsAt:   time.Now().Add(999999 * time.Hour),
-	}
-
-	seedOnCalls := map[string]OnCallEntry{
-		oc1.Username: oc1,
-		oc2.Username: oc2,
-	}
-
-	return NewInMemoryOnCallStore(seedOnCalls)
-}
-
-func getMongoClient(conf Config) *mongo.Client {
+func getMongoDatabase(conf Config) *mongo.Database {
 	if conf.ConnectionString == "" {
 		slog.Info("HANDOFF_CONNECT_STRING is empty, use Memory store only")
 		return nil
 	}
+
 	slog.Info("using mongo store", "db", conf.DatabaseName)
 	client, err := mongo.Connect(options.Client().ApplyURI(conf.ConnectionString))
 	if err != nil {
 		log.Fatal("can't connect to db via HANDOFF_CONNECT_STRING")
 	}
-	return client
+
+	db := client.Database(conf.DatabaseName)
+	return db
+}
+
+func mongoNextID(ctx context.Context, nameInCollectionCounter string, prefix string) (string, error) {
+	if db == nil {
+		log.Fatalf("db is nil")
+	}
+	col := db.Collection(CollectionCounters)
+	filter := bson.M{"_id": nameInCollectionCounter}
+	update := bson.M{"$inc": bson.M{"seq": 1}}
+	opts := options.FindOneAndUpdate().
+		SetUpsert(true).
+		SetReturnDocument(options.After)
+
+	var result struct {
+		Seq int `bson:"seq"`
+	}
+	err := col.FindOneAndUpdate(ctx, filter, update, opts).Decode(&result)
+	if err != nil {
+		return "", err
+	}
+	return prefix + strconv.Itoa(result.Seq), nil
 }
 
 func main() {
@@ -69,15 +72,21 @@ func main() {
 	// init flagHandler
 	flagHandler := FlagHandler{store: CreateFlagStore()}
 
-	// init onCallHandler
-	onCallHandler := &OnCallHandler{Store: NewOnCallStore()}
-
-	// init config
+	// init config and mongoClient
 	config := loadConfig()
+	db = getMongoDatabase(config)
 
+	// init onCallHandler
+	onCallStore, err := NewOnCallStore(context.Background(), db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	onCallHandler := &OnCallHandler{Store: onCallStore}
 	// Init IncidentHandler and its store
-	client := getMongoClient(config)
-	incidentStore := NewIncidentStore(client, config)
+	incidentStore, err := NewIncidentStore(db)
+	if err != nil {
+		log.Fatalf("%v", err) // for an error
+	}
 	instrumentedIncidentStore := InstrumentedIncidentStore{
 		inner:   incidentStore,
 		metrics: incidentStoreMetric,
@@ -90,11 +99,14 @@ func main() {
 	}
 
 	// init authHandler and its store
-	userStore := NewUsertStore(client, config)
+	userStore, err := NewUserStore(context.Background(), db)
+	if err != nil {
+		log.Fatal(err)
+	}
 	authHandler := NewAuthHandler(userStore, []byte(config.JWT_SECRET), time.Duration(15*time.Minute))
 
 	// Set router
-	router := getRouter(&incHandler, &flagHandler, authHandler, onCallHandler, client, promRegistry, httpMetrics)
+	router := getRouter(&incHandler, &flagHandler, authHandler, onCallHandler, db, promRegistry, httpMetrics)
 
 	// run server
 	srv := http.Server{

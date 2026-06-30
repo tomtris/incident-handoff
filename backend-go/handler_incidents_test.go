@@ -17,14 +17,14 @@ import (
 )
 
 func TestMarshalNewEntryEvent(t *testing.T) {
-	entryTimeline := TimelineEntry{
+	timelineEntry := TimelineEntry{
 		ID:        "TLE-1",
 		CreatedAt: time.Now(),
 		Author:    "anh",
 		Type:      OBSERVATION,
 		Text:      "test entry",
 	}
-	rawMsg := marshalNewEntryEvent("INC-test1", entryTimeline)
+	rawMsg := marshalNewEntryEvent("INC-test1", timelineEntry)
 	var event map[string]any
 	json.Unmarshal(rawMsg, &event)
 
@@ -76,11 +76,11 @@ func TestMarshalIncidentUpdateEvent(t *testing.T) {
 }
 
 func TestGetIncidentOK(t *testing.T) {
-	store := NewMemoryIncidentStore()
+	MemoryIncidentStore, _ := NewMemoryIncidentStore()
 	validIncRequest := validCreateIncidentRequest()
-	store.CreateIncident(context.Background(), "", "", validIncRequest)
+	MemoryIncidentStore.CreateIncident(context.Background(), "", "", validIncRequest)
 
-	handler := IncidentHandler{IncidentStore: store}
+	handler := IncidentHandler{IncidentStore: MemoryIncidentStore}
 	req := httptest.NewRequest("GET", "/incident/INC-1", nil)
 	req.SetPathValue("id", "INC-1")
 
@@ -111,8 +111,8 @@ func TestGetIncidentOK(t *testing.T) {
 }
 
 func TestGetIncident404(t *testing.T) {
-	store := NewMemoryIncidentStore()
-	handler := IncidentHandler{IncidentStore: store}
+	MemoryIncidentStore, _ := NewMemoryIncidentStore()
+	handler := IncidentHandler{IncidentStore: MemoryIncidentStore}
 	req := httptest.NewRequest("GET", "/incident/INC-1", nil)
 	req.SetPathValue("id", "INC-1")
 
@@ -128,11 +128,12 @@ func TestGetIncident404(t *testing.T) {
 
 func TestCreateIncident(t *testing.T) {
 	incCreateRequest := validCreateIncidentRequest()
-	store := NewMemoryIncidentStore()
-	store.CreateIncident(context.Background(), "", "", incCreateRequest)
-	onCallHandler := &OnCallHandler{Store: NewOnCallStore()}
+	MemoryIncidentStore, _ := NewMemoryIncidentStore()
+	MemoryIncidentStore.CreateIncident(context.Background(), "", "", incCreateRequest)
+	NewInMemoryOnCallStore, _ := NewInMemoryOnCallStore()
+	onCallHandler := &OnCallHandler{Store: NewInMemoryOnCallStore}
 	handler := IncidentHandler{
-		IncidentStore: store,
+		IncidentStore: MemoryIncidentStore,
 		CurrentOnCall: onCallHandler.Store,
 	}
 	bodyRaw, _ := json.Marshal(incCreateRequest)
@@ -172,17 +173,17 @@ func TestCreateIncident(t *testing.T) {
 
 func TestListIncident(t *testing.T) {
 
-	store := NewMemoryIncidentStore()
+	MemoryIncidentStore, _ := NewMemoryIncidentStore()
 	incCreateRequest := validCreateIncidentRequest()
-	store.CreateIncident(context.Background(), "", "", incCreateRequest)
+	MemoryIncidentStore.CreateIncident(context.Background(), "", "", incCreateRequest)
 	incCreateRequest.Title = "123"
-	store.CreateIncident(context.Background(), "", "", incCreateRequest)
+	MemoryIncidentStore.CreateIncident(context.Background(), "", "", incCreateRequest)
 	incCreateRequest.Service = "no_services"
-	store.CreateIncident(context.Background(), "", "", incCreateRequest)
+	MemoryIncidentStore.CreateIncident(context.Background(), "", "", incCreateRequest)
 	incCreateRequest.Severity = "SEV3"
-	store.CreateIncident(context.Background(), "", "", incCreateRequest)
+	MemoryIncidentStore.CreateIncident(context.Background(), "", "", incCreateRequest)
 
-	handler := IncidentHandler{IncidentStore: store}
+	handler := IncidentHandler{IncidentStore: MemoryIncidentStore}
 
 	t.Run("listAll", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/incidents", nil)
@@ -231,9 +232,10 @@ func newTestServer(t *testing.T) (*httptest.Server, string, string) {
 	go registry.run()
 	t.Cleanup(func() { close(registry.done) })
 
-	onCallHandler := &OnCallHandler{Store: NewOnCallStore()}
+	NewInMemoryOnCallStore, _ := NewInMemoryOnCallStore()
+	onCallHandler := &OnCallHandler{Store: NewInMemoryOnCallStore}
 	flagHandler := FlagHandler{store: CreateFlagStore()}
-	memStore := NewMemoryIncidentStore()
+	memStore, _ := NewMemoryIncidentStore()
 	instrumentedIncidentStore := InstrumentedIncidentStore{
 		inner:   memStore,
 		metrics: incidentStoreMetric,
@@ -441,11 +443,11 @@ func TestUpdateIncident(t *testing.T) {
 }
 
 func TestGetHandoffBriefAdmin(t *testing.T) {
-	store := NewMemoryIncidentStore()
+	MemoryIncidentStore, _ := NewMemoryIncidentStore()
 	validIncRequest := validCreateIncidentRequest()
-	store.CreateIncident(context.Background(), "", "", validIncRequest)
+	MemoryIncidentStore.CreateIncident(context.Background(), "", "", validIncRequest)
 
-	handler := IncidentHandler{IncidentStore: store}
+	handler := IncidentHandler{IncidentStore: MemoryIncidentStore}
 	req := httptest.NewRequest("GET", "/incidents/INC-1/handoff?user_id=tom", nil)
 	req.SetPathValue("id", "INC-1")
 	ctx := context.WithValue(req.Context(), userContextKey, UserContext{
@@ -474,11 +476,11 @@ func TestGetHandoffBriefAdmin(t *testing.T) {
 }
 
 func TestGetHandoffBriefEngineer(t *testing.T) {
-	store := NewMemoryIncidentStore()
+	MemoryIncidentStore, _ := NewMemoryIncidentStore()
 	validIncRequest := validCreateIncidentRequest()
-	store.CreateIncident(context.Background(), "", "", validIncRequest)
+	MemoryIncidentStore.CreateIncident(context.Background(), "", "", validIncRequest)
 
-	handler := IncidentHandler{IncidentStore: store}
+	handler := IncidentHandler{IncidentStore: MemoryIncidentStore}
 	req := httptest.NewRequest("GET", "/incidents/INC-1/handoff", nil)
 	req.SetPathValue("id", "INC-1")
 	ctx := context.WithValue(req.Context(), userContextKey, UserContext{

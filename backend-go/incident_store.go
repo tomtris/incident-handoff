@@ -15,11 +15,11 @@ type IncidentStore interface {
 	AddEntry(ctx context.Context, incID string, expectedIncVersion int, entry TimelineEntry) (TimelineEntry, error)
 }
 
-func NewIncidentStore(client *mongo.Client, conf Config) IncidentStore {
-	if client == nil {
+func NewIncidentStore(db *mongo.Database) (IncidentStore, error) {
+	if db == nil {
 		slog.Info("use in-memory store for IncidentStore")
 		return NewMemoryIncidentStore()
 	}
 	slog.Info("use MongoStore for IncidentStore")
-	return NewMongoIncidentStore(client, conf.DatabaseName)
+	return NewMongoIncidentStore(db.Collection(CollectionIncidents))
 }

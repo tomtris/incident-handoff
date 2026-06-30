@@ -28,7 +28,7 @@ func getRouter(
 	authHandler *AuthHandler,
 	onCallHandler *OnCallHandler,
 
-	mongoClient *mongo.Client,
+	mongoDB *mongo.Database,
 	promRegistry *prometheus.Registry,
 	httpMetrics *HTTPMetrics) http.Handler {
 
@@ -40,6 +40,7 @@ func getRouter(
 	protected.HandleFunc("GET /incidents", ResponseMiddleware(incHandler.ListIncidents))
 	protected.HandleFunc("GET /incidents/{id}/handoff", ResponseMiddleware(incHandler.GetHandoffBrief))
 	protected.HandleFunc("PATCH /incidents/{id}", ResponseMiddleware(incHandler.UpdateIncident))
+
 	// auth
 	protected.HandleFunc("GET /auth/me", ResponseMiddleware(authHandler.WhoAmI))
 	protected.HandleFunc("GET /auth/isauthenticated", ResponseMiddleware(authHandler.WhoAmI))
@@ -60,7 +61,7 @@ func getRouter(
 	public := http.NewServeMux()
 	public.Handle("GET /metrics", promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{Registry: promRegistry}))
 	public.HandleFunc("GET /healthz", healthCheck)
-	public.HandleFunc("GET /readyz", readyCheck(mongoClient))
+	public.HandleFunc("GET /readyz", readyCheck(mongoDB))
 	public.HandleFunc("POST /login", LoginResponseMiddleware(authHandler.LoginHandler))
 	public.HandleFunc("POST /registration", ResponseMiddleware(authHandler.RegistrationHandler))
 	// public.Handle("GET /", http.FileServer(http.Dir("./frontend/public")))

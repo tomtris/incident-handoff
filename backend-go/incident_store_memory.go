@@ -12,11 +12,11 @@ type MemoryIncidentStore struct {
 	mu                  sync.RWMutex
 	incidents           map[string]Incident
 	nextIncidentID      int
-	nextEntryTimelineID int
+	nextTimelineEntryID int
 }
 
-func NewMemoryIncidentStore() *MemoryIncidentStore {
-	return &MemoryIncidentStore{incidents: make(map[string]Incident)}
+func NewMemoryIncidentStore() (*MemoryIncidentStore, error) {
+	return &MemoryIncidentStore{incidents: make(map[string]Incident)}, nil // [id]Incident
 }
 
 func (m *MemoryIncidentStore) CreateIncident(ctx context.Context, openedBy string, onCall string, incReq CreateIncidentRequest) (Incident, error) {
@@ -67,8 +67,8 @@ func (m *MemoryIncidentStore) AddEntry(ctx context.Context, incID string, curren
 		return TimelineEntry{}, ErrIncidentVersionConflict
 	}
 
-	m.nextEntryTimelineID++
-	entry.ID = entryIDPrefix + strconv.Itoa(m.nextEntryTimelineID)
+	m.nextTimelineEntryID++
+	entry.ID = TimelineEntryIDPrefix + strconv.Itoa(m.nextTimelineEntryID)
 	entry.CreatedAt = time.Now()
 	inc.Entries = append(inc.Entries, entry)
 	inc.UpdatedAt = time.Now()

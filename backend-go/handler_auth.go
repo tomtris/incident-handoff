@@ -26,8 +26,6 @@ func NewAuthHandler(users UserStore, secret []byte, ttl time.Duration) *AuthHand
 
 func (h *AuthHandler) RegistrationHandler(r *http.Request) (*AppResponse, *AppError) {
 	u := UserRegistration{}
-	// body, err := io.ReadAll(r.Body)
-	// fmt.Println(string(body))
 
 	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
 		return nil, BadRequest(MalformedRequestBody)
@@ -95,7 +93,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) (*App
 }
 
 func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	requestID, _ := r.Context().Value(requestIDKey).(string)
+	requestID := getRequestID(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
 		Value:    "",

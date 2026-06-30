@@ -11,7 +11,7 @@ type OnCallHandler struct {
 	Store OnCallStore
 }
 
-type OnCallEntry struct {
+type OnCallShiftEntry struct {
 	ID       string    `json:"id" bson:"_id"`
 	Service  string    `json:"service" bson:"service"`
 	Username string    `json:"username" bson:"username"`
@@ -19,7 +19,7 @@ type OnCallEntry struct {
 	EndsAt   time.Time `json:"ends_at" bson:"ends_at"`
 }
 
-func (entry *OnCallEntry) Validation() error {
+func (entry *OnCallShiftEntry) Validation() error {
 	if strings.TrimSpace(entry.Service) == "" {
 		return ErrBadRequest
 	}
@@ -34,7 +34,7 @@ func (entry *OnCallEntry) Validation() error {
 
 // TODO: Define error code and have clear return value
 func (h *OnCallHandler) CreateShift(r *http.Request) (*AppResponse, *AppError) {
-	entry := OnCallEntry{}
+	entry := OnCallShiftEntry{}
 	if err := json.NewDecoder(r.Body).Decode(&entry); err != nil {
 		return nil, BadRequest(MalformedRequestBody)
 	}

@@ -1,11 +1,9 @@
-The project is now [`LIVE`](https://tomtris--incident-handoff--k66vxjf79gbd.code.run/)
+The project is [`LIVE`](https://incident-handoff-latest.onrender.com/). Free tier spins down after inactivity — first load may take ~15-60s to wake.
 
 
 # Handoff `//`
 
-A full-stack **incident handoff** tool: a Go HTTP backend plus a Vue 3 frontend that turn the messy,
-under-pressure moment of passing an active incident from one engineer to another into a clean,
-structured brief.
+A full-stack **incident handoff** tool: a Go HTTP backend plus a Vue 3 frontend that turn the messy, under-pressure moment of passing an active incident from one engineer to another into a clean, structured brief.
 
 ---
 
@@ -20,6 +18,9 @@ happened* before they can help.
 
 **Handoff** fixes the handoff itself:
 
+In short, the repo turns ad-hoc incident chatter into a shareable, role-aware, structured record
+optimized for the moment one person takes over from another.
+
 - It captures **timestamped, typed actions** as the engineer works — every note is an `observation`,
   `action`, `discovery`, `open_question`, or `state_change`, so the history stays skimmable instead
   of becoming a wall of chat.
@@ -30,8 +31,7 @@ happened* before they can help.
 - It is **role-aware**: only an admin or the current on-call engineer can mutate an incident;
   everyone else gets a read-only view.
 
-In short, the repo turns ad-hoc incident chatter into a shareable, role-aware, structured record
-optimized for the moment one person takes over from another.
+
 
 ### Progress
 - [x] Phase 1 — Production Go HTTP Service

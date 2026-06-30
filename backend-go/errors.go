@@ -69,7 +69,7 @@ var ErrInternal = errors.New("Internal Error")
 var ErrFlagNotfound = errors.New("Flag Not Found")
 var ErrFlagAlreadyExist = errors.New("Flag is already in use")
 var ErrUserAlreadyExist = errors.New("username already exist")
-var OnCallUserNotFound = errors.New("No OnCall is available")
+var OnCallShiftEntryNotFound = errors.New("No OnCall is available")
 var ErrServiceRequired = errors.New("service required")
 var MalformedRequestBody = errors.New("malformed request body")
 

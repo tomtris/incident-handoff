@@ -59,7 +59,7 @@ func ObservabilityMiddleware(httpMetrics *HTTPMetrics) func(http.Handler) http.H
 
 			defer func() {
 				duration := time.Since(start)
-				requestID := r.Context().Value(requestIDKey).(string)
+				requestID := getRequestID(r)
 				err := recover()
 
 				if err != nil {
@@ -123,7 +123,7 @@ func AuthMiddleware(JWT_SECRET []byte) func(http.Handler) http.Handler {
 				writeError(w, http.StatusUnauthorized, ErrorMessageJSON{
 					ErrorCode: "NO_AUTH_COOKIE",
 					Message:   "access_token cookie not found",
-					RequestID: r.Context().Value(requestIDKey).(string),
+					RequestID: getRequestID(r),
 				})
 				return
 			}
@@ -145,7 +145,7 @@ func AuthMiddleware(JWT_SECRET []byte) func(http.Handler) http.Handler {
 				writeError(w, http.StatusUnauthorized, ErrorMessageJSON{
 					ErrorCode: "BAD_JWT_TOKEN",
 					Message:   msg,
-					RequestID: r.Context().Value(requestIDKey).(string),
+					RequestID: getRequestID(r),
 				})
 				return
 			}
@@ -176,7 +176,7 @@ func AuthAdminOnlyMiddleware(next func(*http.Request) (*AppResponse, *AppError))
 
 func ResponseMiddleware(next func(*http.Request) (*AppResponse, *AppError)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestID := r.Context().Value(requestIDKey).(string)
+		requestID := getRequestID(r)
 		res, appErr := next(r)
 		if appErr != nil {
 			writeError(w, appErr.Status, ErrorMessageJSON{
@@ -192,7 +192,7 @@ func ResponseMiddleware(next func(*http.Request) (*AppResponse, *AppError)) http
 
 func LoginResponseMiddleware(next func(http.ResponseWriter, *http.Request) (*AppResponse, *AppError)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestID := r.Context().Value(requestIDKey).(string)
+		requestID := getRequestID(r)
 		res, appErr := next(w, r)
 		if appErr != nil {
 			writeError(w, appErr.Status, ErrorMessageJSON{

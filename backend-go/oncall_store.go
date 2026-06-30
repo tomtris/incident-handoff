@@ -1,0 +1,26 @@
+package main
+
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"go.mongodb.org/mongo-driver/v2/mongo"
+)
+
+type OnCallStore interface {
+	Create(ctx context.Context, entry OnCallShiftEntry) (OnCallShiftEntry, error)
+	CurrentOnCall(ctx context.Context, service string) (string, error)
+	ListOnCalls(ctx context.Context, startsAt *time.Time, endsAt *time.Time) ([]OnCallShiftEntry, error)
+	UpdateOnCall(ctx context.Context, updatedEntry OnCallShiftEntry) (OnCallShiftEntry, error)
+}
+
+func NewOnCallStore(ctx context.Context, db *mongo.Database) (OnCallStore, error) {
+	if db == nil {
+		slog.Info("use in-memory store for UserStore")
+		return NewInMemoryOnCallStore()
+	}
+
+	slog.Info("use MongoStore for UserStore")
+	return NewMongoOnCallStore(ctx, db.Collection(CollectionOnCallShifts))
+}

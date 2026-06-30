@@ -57,7 +57,7 @@ func TestCreateUser(t *testing.T) {
 		if err0 != nil || err1 != nil {
 			t.Fatalf("expect no error")
 		}
-		if u0.ID != UserPrefix+"1" || u1.ID != UserPrefix+"2" {
+		if u0.ID != UserIDPrefix+"1" || u1.ID != UserIDPrefix+"2" {
 			t.Fatalf("userID not as expected")
 		}
 	})

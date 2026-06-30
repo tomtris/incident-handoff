@@ -12,11 +12,11 @@ type UserStore interface {
 	GetByUsername(ctx context.Context, username string) (User, error)
 }
 
-func NewUsertStore(client *mongo.Client, conf Config) UserStore {
-	if conf.ConnectionString == "" {
+func NewUserStore(ctx context.Context, db *mongo.Database) (UserStore, error) {
+	if db == nil {
 		slog.Info("use in-memory store for UserStore")
 		return NewMemoryUserStore()
 	}
 	slog.Info("use MongoStore for UserStore")
-	return NewMongoUserStore(client, conf.DatabaseName)
+	return NewMongoUserStore(ctx, db.Collection(CollectionUsers))
 }

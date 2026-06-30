@@ -57,10 +57,23 @@ const (
 )
 
 const (
-	CollectionUsers            = "users"
-	CollectionUserCounters     = "user_counters"
-	CollectionIncidents        = "incidents"
-	CollectionIncidentCounters = "incident_counters"
+	CollectionUsers        = "users"
+	CollectionIncidents    = "incidents"
+	CollectionOnCallShifts = "on_call_shifts"
+
+	CollectionCounters              = "counters"
+	CollectionCountersUser          = "counter_user"
+	CollectionCountersTimelineEntry = "counter_entry_timeline"
+	CollectionCountersIncident      = "counter_incident"
+	CollectionCountersOnCallShift   = "counter_on_cal_shift"
+
+	requestIDKey   = "request_id"
+	userContextKey = "user"
+
+	incidentIDPrefix         = "INC-"
+	TimelineEntryIDPrefix    = "TLE-"
+	OnCallShiftEntryIDPrefix = "ONc-"
+	UserIDPrefix             = "Usr-"
 )
 
 // Incident Severity
@@ -110,10 +123,3 @@ var validEntryTypes = map[string]bool{
 	OPEN_QUESTION: true,
 	STATE_CHANGE:  true,
 }
-
-const requestIDKey = "request_id"
-const userContextKey = "user"
-const incidentIDPrefix = "INC-"
-const entryIDPrefix = "TLE-"
-const OnCallEntryPrefix = "ONc-"
-const UserPrefix = "Usr-"

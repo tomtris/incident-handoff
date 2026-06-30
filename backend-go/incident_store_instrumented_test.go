@@ -14,8 +14,9 @@ func setup_testInstrumented_Env(t *testing.T) *InstrumentedIncidentStore {
 	t.Helper()
 	reg := prometheus.NewRegistry()
 	metrics := NewIncidentStoreMetric(reg)
+	NewMemoryIncidentStore, _ := NewMemoryIncidentStore()
 	instrumented := InstrumentedIncidentStore{
-		inner:   NewMemoryIncidentStore(),
+		inner:   NewMemoryIncidentStore,
 		metrics: metrics,
 	}
 	return &instrumented

@@ -2,44 +2,76 @@ package main
 
 import (
 	"context"
-	"maps"
 	"strconv"
+	"sync"
 	"time"
 )
 
-type OnCallStore interface {
-	Create(ctx context.Context, entry OnCallEntry) (OnCallEntry, error)
-	CurrentOnCall(ctx context.Context, service string) (string, error)
-}
-
 type InMemoryOnCallStore struct {
-	OnCallEntries map[string]OnCallEntry
+	mu            sync.RWMutex
+	OnCallEntries map[string]OnCallShiftEntry
 	currentID     int
 }
 
-func NewInMemoryOnCallStore(entries map[string]OnCallEntry) *InMemoryOnCallStore {
+func NewInMemoryOnCallStore() (*InMemoryOnCallStore, error) {
 	s := InMemoryOnCallStore{
-		OnCallEntries: make(map[string]OnCallEntry),
+		OnCallEntries: make(map[string]OnCallShiftEntry), // id:Entry
 		currentID:     0,
 	}
-	maps.Copy(s.OnCallEntries, entries)
-	return &s
+	return &s, nil
 }
 
-func (store *InMemoryOnCallStore) Create(ctx context.Context, entry OnCallEntry) (OnCallEntry, error) {
-	store.currentID++
-	ID := OnCallEntryPrefix + strconv.Itoa(store.currentID)
-	entry.ID = ID
-	store.OnCallEntries[entry.ID] = entry
+func (s *InMemoryOnCallStore) Create(ctx context.Context, entry OnCallShiftEntry) (OnCallShiftEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.currentID++
+	entry.ID = OnCallShiftEntryIDPrefix + strconv.Itoa(s.currentID)
+	s.OnCallEntries[entry.ID] = entry
 	return entry, nil
 }
 
-func (store *InMemoryOnCallStore) CurrentOnCall(ctx context.Context, service string) (string, error) {
+func (s *InMemoryOnCallStore) CurrentOnCall(ctx context.Context, service string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	now := time.Now()
-	for _, each := range store.OnCallEntries {
-		if each.Service == service && each.StartsAt.Before(now) && each.EndsAt.After(now) {
+	for _, each := range s.OnCallEntries {
+		// startsat <= now  AND  now > EndsAt
+		if each.Service == service && !each.StartsAt.After(now) && each.EndsAt.After(now) {
 			return each.Username, nil
 		}
 	}
-	return "", OnCallUserNotFound
+	return "", OnCallShiftEntryNotFound
+}
+
+func (s *InMemoryOnCallStore) ListOnCalls(ctx context.Context, startsAt *time.Time, endsAt *time.Time) ([]OnCallShiftEntry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	entries := []OnCallShiftEntry{}
+	for _, each := range s.OnCallEntries {
+		// startsat >= startsAt
+		if startsAt != nil && each.StartsAt.Before(*startsAt) {
+			continue
+		}
+		// startsat < endsAt
+		if endsAt != nil && !each.StartsAt.Before(*endsAt) {
+			continue
+		}
+		entries = append(entries, each)
+	}
+	return entries, nil
+}
+
+func (s *InMemoryOnCallStore) UpdateOnCall(ctx context.Context, updatedEntry OnCallShiftEntry) (OnCallShiftEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.OnCallEntries[updatedEntry.ID]; !ok {
+		return OnCallShiftEntry{}, OnCallShiftEntryNotFound
+	}
+
+	s.OnCallEntries[updatedEntry.ID] = updatedEntry
+	return updatedEntry, nil
 }

@@ -2,6 +2,9 @@ run:
 	cd ./frontend-vue && npm install && npm audit fix && npm run build
 	go -C backend-go run .
 
+mongo-up:
+	docker compose up -d
+
 env:
 	go run .
 

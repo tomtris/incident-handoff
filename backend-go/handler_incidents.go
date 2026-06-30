@@ -61,7 +61,7 @@ func (h *IncidentHandler) CreateIncident(r *http.Request) (*AppResponse, *AppErr
 
 	onCall, err := h.CurrentOnCall.CurrentOnCall(r.Context(), req.Service)
 	if err != nil {
-		if errors.Is(err, OnCallUserNotFound) {
+		if errors.Is(err, OnCallShiftEntryNotFound) {
 			onCall = ""
 		} else {
 			return nil, InternalServerError(err)
@@ -210,7 +210,7 @@ func (h *IncidentHandler) HandleIncidentWebSocket(w http.ResponseWriter, r *http
 	conn, err := upgrader.Upgrade(w, r, nil)
 
 	if err != nil {
-		RequestID := r.Context().Value(requestIDKey).(string)
+		RequestID := getRequestID(r)
 		writeError(w, http.StatusInternalServerError, ErrorMessageJSON{
 			ErrorCode: INTERNAL_SERVER_ERROR,
 			Message:   err.Error(),

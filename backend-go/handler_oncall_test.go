@@ -10,34 +10,34 @@ import (
 	"time"
 )
 
-func TestOnCallEntryValidation(t *testing.T) {
-	entry := OnCallEntry{
+func TestOnCallShiftEntryValidation(t *testing.T) {
+	entry := OnCallShiftEntry{
 		Service:  "payment",
 		Username: "anh",
 		StartsAt: time.Now(),
 		EndsAt:   time.Now().Add(1 * time.Hour),
 	}
 
-	t.Run("normal OnCallEntry", func(t *testing.T) {
+	t.Run("normal OnCallShiftEntry", func(t *testing.T) {
 		if err := entry.Validation(); err != nil {
 			t.Errorf("expect no error, get %v", err.Error())
 		}
 	})
-	t.Run("OnCallEntry with empty Service", func(t *testing.T) {
+	t.Run("OnCallShiftEntry with empty Service", func(t *testing.T) {
 		entry.Service = ""
 		if err := entry.Validation(); err != ErrBadRequest {
 			t.Errorf("expect %v, get %v", ErrBadRequest, err.Error())
 		}
 		entry.Service = "payment"
 	})
-	t.Run("OnCallEntry with empty username", func(t *testing.T) {
+	t.Run("OnCallShiftEntry with empty username", func(t *testing.T) {
 		entry.Username = ""
 		if err := entry.Validation(); err != ErrBadRequest {
 			t.Errorf("expect %v, get %v", ErrBadRequest, err.Error())
 		}
 		entry.Username = "anh"
 	})
-	t.Run("OnCallEntry with startsAt after EndsAt", func(t *testing.T) {
+	t.Run("OnCallShiftEntry with startsAt after EndsAt", func(t *testing.T) {
 		entry.StartsAt = entry.EndsAt.Add(1 * time.Hour)
 		if err := entry.Validation(); err != ErrBadRequest {
 			t.Errorf("expect %v, get %v", ErrBadRequest, err.Error())
@@ -47,8 +47,9 @@ func TestOnCallEntryValidation(t *testing.T) {
 }
 
 func TestCreateShift201(t *testing.T) {
-	onCallHandler := &OnCallHandler{Store: NewOnCallStore()}
-	entry := OnCallEntry{
+	NewOnCallStore, _ := NewOnCallStore(t.Context(), nil)
+	onCallHandler := &OnCallHandler{Store: NewOnCallStore}
+	entry := OnCallShiftEntry{
 		Service:  "payment",
 		Username: "anh",
 		StartsAt: time.Now().Add(-1 * time.Hour),
@@ -64,7 +65,7 @@ func TestCreateShift201(t *testing.T) {
 	if appRes.Status != http.StatusCreated {
 		t.Fatalf("expect status %v, get %v", http.StatusCreated, appRes.Status)
 	}
-	body := appRes.Body.(OnCallEntry)
+	body := appRes.Body.(OnCallShiftEntry)
 	if body.Service != entry.Service {
 		t.Fatalf("expect same service")
 	}
@@ -81,7 +82,7 @@ func TestCreateShift201(t *testing.T) {
 
 func TestCurrentOnCall(t *testing.T) {
 	onCallHandler := &OnCallHandler{Store: &InMemoryOnCallStore{
-		OnCallEntries: make(map[string]OnCallEntry),
+		OnCallEntries: make(map[string]OnCallShiftEntry),
 		currentID:     0,
 	}}
 
@@ -105,7 +106,7 @@ func TestCurrentOnCall(t *testing.T) {
 	})
 
 	t.Run("sucessful CurrentOnCall", func(t *testing.T) {
-		entry := OnCallEntry{
+		entry := OnCallShiftEntry{
 			Service:  "payment",
 			Username: "anh",
 			StartsAt: time.Now().Add(-1 * time.Minute),

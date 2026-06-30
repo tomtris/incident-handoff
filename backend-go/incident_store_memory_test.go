@@ -1,11 +1,10 @@
 package main
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestStoreMemory(t *testing.T) {
 	runStoreContractsTests(t, func(t *testing.T) IncidentStore {
-		return NewMemoryIncidentStore()
+		NewMemoryIncidentStore, _ := NewMemoryIncidentStore()
+		return NewMemoryIncidentStore
 	})
 }
